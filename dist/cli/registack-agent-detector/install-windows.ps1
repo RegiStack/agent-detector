@@ -50,10 +50,26 @@ function Get-CandidateScanDirs {
     return ,$list.ToArray()
 }
 
+function Select-ScanDirWithPicker {
+    Add-Type -AssemblyName System.Windows.Forms
+    $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
+    $dialog.Description = "Select default detection path for Registack AIR Agent Detector"
+    $dialog.ShowNewFolderButton = $false
+    if ($dialog.ShowDialog() -ne [System.Windows.Forms.DialogResult]::OK) {
+        throw "No folder selected."
+    }
+    if (-not (Test-Path -LiteralPath $dialog.SelectedPath)) {
+        throw "Selected folder does not exist."
+    }
+    return $dialog.SelectedPath
+}
+
 $candidateScanDirs = Get-CandidateScanDirs
 if ($candidateScanDirs.Count -eq 0) {
     throw "No predefined detection paths were found on this machine."
 }
+
+$pickerChoice = $candidateScanDirs.Count + 1
 
 if ($ScanChoice -eq 0) {
     if ($NoPrompt) {
@@ -63,22 +79,27 @@ if ($ScanChoice -eq 0) {
     for ($i = 0; $i -lt $candidateScanDirs.Count; $i++) {
         Write-Host ("  [{0}] {1}" -f ($i + 1), $candidateScanDirs[$i])
     }
+    Write-Host ("  [{0}] {1}" -f $pickerChoice, "Choose folder in File Explorer...")
     while ($true) {
-        $selected = Read-Host ("Choice [1-{0}]" -f $candidateScanDirs.Count)
+        $selected = Read-Host ("Choice [1-{0}]" -f $pickerChoice)
         $parsed = 0
-        if ([int]::TryParse($selected, [ref]$parsed) -and $parsed -ge 1 -and $parsed -le $candidateScanDirs.Count) {
+        if ([int]::TryParse($selected, [ref]$parsed) -and $parsed -ge 1 -and $parsed -le $pickerChoice) {
             $ScanChoice = $parsed
             break
         }
-        Write-Host ("Please select a number between 1 and {0}." -f $candidateScanDirs.Count)
+        Write-Host ("Please select a number between 1 and {0}." -f $pickerChoice)
     }
 }
 
-if ($ScanChoice -lt 1 -or $ScanChoice -gt $candidateScanDirs.Count) {
-    throw "ScanChoice out of range. Valid values: 1-$($candidateScanDirs.Count)"
+if ($ScanChoice -lt 1 -or $ScanChoice -gt $pickerChoice) {
+    throw "ScanChoice out of range. Valid values: 1-$pickerChoice"
 }
 
-$selectedScanDir = $candidateScanDirs[$ScanChoice - 1]
+if ($ScanChoice -eq $pickerChoice) {
+    $selectedScanDir = Select-ScanDirWithPicker
+} else {
+    $selectedScanDir = $candidateScanDirs[$ScanChoice - 1]
+}
 
 New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 New-Item -ItemType Directory -Force -Path (Split-Path -Parent $ConfigPath) | Out-Null

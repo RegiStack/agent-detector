@@ -12,6 +12,7 @@ POINTER_NAME=".registack-agent-detector-config"
 TMP_FILE="$(mktemp)"
 PROMPT_FOR_SCAN_DIR=true
 SELECTED_SCAN_DIR=""
+PICKER_LABEL="Choose folder in file picker..."
 declare -a CANDIDATE_PATHS
 
 cleanup() {
@@ -87,8 +88,28 @@ build_candidates() {
   add_candidate "$HOME"
 }
 
+pick_scan_dir_with_picker() {
+  local selected=""
+  if command -v zenity >/dev/null 2>&1; then
+    selected="$(zenity --file-selection --directory --title='Select default detection path for Registack AIR Agent Detector' 2>/dev/null || true)"
+  elif command -v qarma >/dev/null 2>&1; then
+    selected="$(qarma --file-selection --directory --title='Select default detection path for Registack AIR Agent Detector' 2>/dev/null || true)"
+  elif command -v kdialog >/dev/null 2>&1; then
+    selected="$(kdialog --getexistingdirectory "$HOME" 'Select default detection path for Registack AIR Agent Detector' 2>/dev/null || true)"
+  else
+    echo "No supported desktop folder picker found. Install zenity, qarma, or kdialog, or use a numbered path choice." >&2
+    exit 1
+  fi
+  selected="${selected%/}"
+  if [ -z "$selected" ] || [ ! -d "$selected" ]; then
+    echo "No folder selected." >&2
+    exit 1
+  fi
+  SELECTED_SCAN_DIR="$selected"
+}
+
 pick_scan_dir() {
-  local index max choice
+  local index max choice picker_choice
   build_candidates
   if [ "${#CANDIDATE_PATHS[@]}" -eq 0 ]; then
     echo "No predefined detection paths were found on this machine." >&2
@@ -96,6 +117,7 @@ pick_scan_dir() {
   fi
 
   max="${#CANDIDATE_PATHS[@]}"
+  picker_choice=$((max + 1))
 
   if [ -n "$SCAN_CHOICE" ]; then
     case "$SCAN_CHOICE" in
@@ -104,9 +126,13 @@ pick_scan_dir() {
         exit 1
         ;;
     esac
-    if [ "$SCAN_CHOICE" -lt 1 ] || [ "$SCAN_CHOICE" -gt "$max" ]; then
-      echo "scan-choice out of range: $SCAN_CHOICE (valid: 1-$max)" >&2
+    if [ "$SCAN_CHOICE" -lt 1 ] || [ "$SCAN_CHOICE" -gt "$picker_choice" ]; then
+      echo "scan-choice out of range: $SCAN_CHOICE (valid: 1-$picker_choice)" >&2
       exit 1
+    fi
+    if [ "$SCAN_CHOICE" -eq "$picker_choice" ]; then
+      pick_scan_dir_with_picker
+      return
     fi
     SELECTED_SCAN_DIR="${CANDIDATE_PATHS[$((SCAN_CHOICE - 1))]}"
     return
@@ -128,20 +154,25 @@ pick_scan_dir() {
     printf '  [%d] %s\n' "$index" "${CANDIDATE_PATHS[$((index - 1))]}" > /dev/tty
     index=$((index + 1))
   done
+  printf '  [%d] %s\n' "$picker_choice" "$PICKER_LABEL" > /dev/tty
 
   while true; do
-    printf 'Choice [1-%d]: ' "$max" > /dev/tty
+    printf 'Choice [1-%d]: ' "$picker_choice" > /dev/tty
     IFS= read -r choice < /dev/tty || true
     case "$choice" in
       ''|*[!0-9]*)
-        echo "Please select a number between 1 and $max." > /dev/tty
+        echo "Please select a number between 1 and $picker_choice." > /dev/tty
         ;;
       *)
+        if [ "$choice" -eq "$picker_choice" ]; then
+          pick_scan_dir_with_picker
+          break
+        fi
         if [ "$choice" -ge 1 ] && [ "$choice" -le "$max" ]; then
           SELECTED_SCAN_DIR="${CANDIDATE_PATHS[$((choice - 1))]}"
           break
         fi
-        echo "Please select a number between 1 and $max." > /dev/tty
+        echo "Please select a number between 1 and $picker_choice." > /dev/tty
         ;;
     esac
   done

@@ -94,7 +94,8 @@ https://registack.eu/cli/registack-agent-detector/
 curl -fsSL https://registack.eu/cli/registack-agent-detector/install-macos.sh | bash
 ```
 
-The installer presents a numbered list of valid detection paths.
+The installer presents a numbered list of valid detection paths plus a Finder
+folder-picker option.
 This list may include the filesystem root `/` for full-machine scans.
 
 For automated use, select by number:
@@ -109,7 +110,8 @@ curl -fsSL https://registack.eu/cli/registack-agent-detector/install-macos.sh | 
 curl -fsSL https://registack.eu/cli/registack-agent-detector/install-linux.sh | bash
 ```
 
-The installer presents a numbered list of valid detection paths.
+The installer presents a numbered list of valid detection paths plus a desktop
+folder-picker option when supported.
 This list may include the filesystem root `/` for full-machine scans.
 
 For automated use, select by number:
@@ -124,7 +126,8 @@ curl -fsSL https://registack.eu/cli/registack-agent-detector/install-linux.sh | 
 powershell -ExecutionPolicy Bypass -c "irm https://registack.eu/cli/registack-agent-detector/install-windows.ps1 | iex"
 ```
 
-The installer presents a numbered list of valid detection paths.
+The installer presents a numbered list of valid detection paths plus a File
+Explorer folder-picker option.
 
 For automated use, select by number:
 
