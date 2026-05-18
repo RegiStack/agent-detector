@@ -77,6 +77,7 @@ add_candidate() {
 
 build_candidates() {
   CANDIDATE_PATHS=()
+  add_candidate "/"
   add_candidate "$HOME/apps"
   add_candidate "$HOME/.registack"
   add_candidate "$HOME/Documents"
@@ -150,6 +151,14 @@ pick_scan_dir
 
 escaped_item=$(printf '%s' "$SELECTED_SCAN_DIR" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')
 
+write_pointer_file() {
+  local pointer_path="${TARGET_DIR}/${POINTER_NAME}"
+  if printf '%s\n' "$CONFIG_PATH" > "$pointer_path" 2>/dev/null; then
+    return 0
+  fi
+  printf '%s\n' "$CONFIG_PATH" | sudo tee "$pointer_path" >/dev/null
+}
+
 curl -fsSL "${BASE_URL}/registack-agent-detector.py" -o "$TMP_FILE"
 
 if mkdir -p "$TARGET_DIR" 2>/dev/null && install -m 0755 "$TMP_FILE" "${TARGET_DIR}/${BIN_NAME}" 2>/dev/null; then
@@ -165,7 +174,7 @@ cat > "$CONFIG_PATH" <<EOF
   "default_scan_dirs": [${escaped_item}]
 }
 EOF
-printf '%s\n' "$CONFIG_PATH" > "${TARGET_DIR}/${POINTER_NAME}"
+write_pointer_file
 
 "${TARGET_DIR}/${BIN_NAME}" --version >/dev/null
 

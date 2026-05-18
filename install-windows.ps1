@@ -38,6 +38,9 @@ function Add-Candidate([System.Collections.Generic.List[string]]$List, [string]$
 
 function Get-CandidateScanDirs {
     $list = New-Object 'System.Collections.Generic.List[string]'
+    if ($env:SystemDrive) {
+        Add-Candidate $list ($env:SystemDrive + "\")
+    }
     Add-Candidate $list "$env:USERPROFILE\Applications"
     Add-Candidate $list "$env:LOCALAPPDATA"
     Add-Candidate $list "$env:ProgramFiles"

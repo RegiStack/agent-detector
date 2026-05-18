@@ -95,6 +95,7 @@ curl -fsSL https://registack.eu/cli/registack-agent-detector/install-macos.sh | 
 ```
 
 The installer presents a numbered list of valid detection paths.
+This list may include the filesystem root `/` for full-machine scans.
 
 For automated use, select by number:
 
@@ -109,6 +110,7 @@ curl -fsSL https://registack.eu/cli/registack-agent-detector/install-linux.sh | 
 ```
 
 The installer presents a numbered list of valid detection paths.
+This list may include the filesystem root `/` for full-machine scans.
 
 For automated use, select by number:
 
@@ -162,6 +164,10 @@ To force the saved installation-time path explicitly:
 ```bash
 registack-agent-detector --scan-default --output json
 ```
+
+If the install target directory is not writable, the installer may request
+elevated permissions to place the binary or its config pointer in the target
+location.
 
 Deep scan:
 
