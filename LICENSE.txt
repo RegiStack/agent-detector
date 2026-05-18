@@ -1,0 +1,80 @@
+Registack Public Preview License 1.0
+No Reuse Rights
+
+Copyright © Registack. All rights reserved.
+
+1. Scope
+
+This repository and the software, scripts, text, layout, and related materials
+within it (the "Preview Materials") are made publicly visible solely for
+evaluation, technical review, pilot preparation, and controlled preview use.
+
+2. Limited Permission
+
+Subject to the terms below, Registack grants you a limited, revocable,
+non-exclusive, non-transferable permission to:
+
+- view the Preview Materials;
+- download them from official Registack distribution points;
+- install and run the software internally for evaluation, testing, security
+  review, and pilot assessment;
+- reproduce only those copies technically necessary for the above evaluation use.
+
+3. No Reuse Rights
+
+No right is granted to:
+
+- use the Preview Materials as open source;
+- modify, adapt, translate, or create derivative works;
+- redistribute, republish, sublicense, lease, lend, sell, or commercialize;
+- use the Preview Materials to build, train, benchmark-market, or operate a
+  competing product or service;
+- remove or alter copyright, notice, or attribution statements;
+- imply that Registack has granted production, resale, or partner rights.
+
+4. Repository Visibility Does Not Expand Rights
+
+Public visibility of this repository, including cloning, forking, mirroring, or
+platform caching mechanisms, does not grant any broader license than the
+limited evaluation permission above.
+
+5. No Trademark, Brand, Patent, or Other IP License
+
+No trademark license, brand-use right, patent license, or other intellectual
+property right is granted except the limited evaluation permission expressly
+stated here.
+
+6. Internal Preview Nature
+
+The Preview Materials may be incomplete, unstable, changed without notice, or
+withdrawn at any time. Registack is not obligated to continue publication,
+compatibility, or support.
+
+7. Compliance and Responsible Use
+
+You are responsible for ensuring that any evaluation or pilot use is lawful and
+consistent with your own internal policies, security controls, and procurement
+rules.
+
+8. Termination
+
+This license terminates automatically if you breach any term. Upon termination,
+you must stop using the Preview Materials and delete retained copies, except to
+the extent retention is required by law.
+
+9. No Warranty
+
+THE PREVIEW MATERIALS ARE PROVIDED "AS IS" AND "AS AVAILABLE", WITHOUT
+WARRANTIES OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT, SECURITY, OR AVAILABILITY.
+
+10. Limitation of Liability
+
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, REGISTACK WILL NOT BE LIABLE FOR ANY
+INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, EXEMPLARY, OR LOST-PROFIT DAMAGES
+ARISING FROM OR RELATING TO THE PREVIEW MATERIALS OR THIS LICENSE.
+
+11. Contact
+
+For commercial, production, licensing, or partner inquiries, contact Registack
+through official channels rather than assuming rights from repository access.
