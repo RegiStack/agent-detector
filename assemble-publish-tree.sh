@@ -15,6 +15,8 @@ FILES=(
   "SECURITY.md"
   "registack-agent-detector.py"
   "registack-agent-detector.ps1"
+  "registack-air-import.py"
+  "registack-air-import.ps1"
   "install-macos.sh"
   "install-linux.sh"
   "install-windows.ps1"

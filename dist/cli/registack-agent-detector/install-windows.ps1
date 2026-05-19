@@ -1,6 +1,6 @@
 # Registack AIR — Internal Pre-Release. © Registack.
 param(
-    [string]$BaseUrl = $(if ($env:REGISTACK_AGENT_DETECTOR_BASE_URL) { $env:REGISTACK_AGENT_DETECTOR_BASE_URL } else { "https://registack.eu/cli/registack-agent-detector" }),
+    [string]$BaseUrl = $(if ($env:REGISTACK_AGENT_DETECTOR_BASE_URL) { $env:REGISTACK_AGENT_DETECTOR_BASE_URL } else { "https://www.registack.eu/cli/registack-agent-detector" }),
     [string]$InstallDir = $(if ($env:REGISTACK_AGENT_DETECTOR_INSTALL_DIR) { $env:REGISTACK_AGENT_DETECTOR_INSTALL_DIR } else { "$env:LOCALAPPDATA\Registack\agent-detector" }),
     [int]$ScanChoice = $(if ($env:REGISTACK_AGENT_DETECTOR_SCAN_CHOICE) { [int]$env:REGISTACK_AGENT_DETECTOR_SCAN_CHOICE } else { 0 }),
     [string]$ConfigPath = $(if ($env:REGISTACK_AGENT_DETECTOR_CONFIG) { $env:REGISTACK_AGENT_DETECTOR_CONFIG } else { "$env:LOCALAPPDATA\Registack\agent-detector\config.json" }),
@@ -24,6 +24,39 @@ function Resolve-PythonCommand {
 
 $null = Resolve-PythonCommand
 
+function Get-ArtifactSourcePath([string]$Base, [string]$ArtifactName) {
+    if ([string]::IsNullOrWhiteSpace($Base)) {
+        throw "BaseUrl must not be empty."
+    }
+    if ($Base -match '^(https?)://') {
+        return $null
+    }
+    if ($Base -match '^file://') {
+        $uri = [System.Uri]$Base
+        $localPath = $uri.LocalPath
+        if ([string]::IsNullOrWhiteSpace($localPath)) {
+            throw "Unable to resolve local path from file URL: $Base"
+        }
+        return Join-Path $localPath $ArtifactName
+    }
+    if (Test-Path -LiteralPath $Base) {
+        return Join-Path $Base $ArtifactName
+    }
+    throw "Unsupported BaseUrl or local path: $Base"
+}
+
+function Fetch-Artifact([string]$Base, [string]$ArtifactName, [string]$DestinationPath) {
+    $sourcePath = Get-ArtifactSourcePath -Base $Base -ArtifactName $ArtifactName
+    if ($null -eq $sourcePath) {
+        Invoke-WebRequest -UseBasicParsing -Uri "$Base/$ArtifactName" -OutFile $DestinationPath
+        return
+    }
+    if (-not (Test-Path -LiteralPath $sourcePath)) {
+        throw "Missing artifact: $sourcePath"
+    }
+    Copy-Item -Force -LiteralPath $sourcePath -Destination $DestinationPath
+}
+
 function Add-Candidate([System.Collections.Generic.List[string]]$List, [string]$Candidate) {
     if ([string]::IsNullOrWhiteSpace($Candidate)) {
         return
@@ -42,6 +75,10 @@ function Get-CandidateScanDirs {
         Add-Candidate $list ($env:SystemDrive + "\")
     }
     Add-Candidate $list "$env:USERPROFILE\Applications"
+    Add-Candidate $list "$env:USERPROFILE\.registack"
+    Add-Candidate $list "$env:USERPROFILE\.codex"
+    Add-Candidate $list "$env:USERPROFILE\.cursor"
+    Add-Candidate $list "$env:USERPROFILE\.openclaw"
     Add-Candidate $list "$env:LOCALAPPDATA"
     Add-Candidate $list "$env:ProgramFiles"
     Add-Candidate $list "$env:USERPROFILE\Documents"
@@ -107,16 +144,27 @@ New-Item -ItemType Directory -Force -Path (Split-Path -Parent $ConfigPath) | Out
 $pyPath = Join-Path $InstallDir "registack-agent-detector.py"
 $ps1Path = Join-Path $InstallDir "registack-agent-detector.ps1"
 $cmdPath = Join-Path $InstallDir "registack-agent-detector.cmd"
+$importPyPath = Join-Path $InstallDir "registack-air-import.py"
+$importPs1Path = Join-Path $InstallDir "registack-air-import.ps1"
+$importCmdPath = Join-Path $InstallDir "registack-air-import.cmd"
 $pointerPath = Join-Path $InstallDir ".registack-agent-detector-config"
 
-Invoke-WebRequest -UseBasicParsing -Uri "$BaseUrl/registack-agent-detector.py" -OutFile $pyPath
-Invoke-WebRequest -UseBasicParsing -Uri "$BaseUrl/registack-agent-detector.ps1" -OutFile $ps1Path
+Fetch-Artifact -Base $BaseUrl -ArtifactName "registack-agent-detector.py" -DestinationPath $pyPath
+Fetch-Artifact -Base $BaseUrl -ArtifactName "registack-agent-detector.ps1" -DestinationPath $ps1Path
+Fetch-Artifact -Base $BaseUrl -ArtifactName "registack-air-import.py" -DestinationPath $importPyPath
+Fetch-Artifact -Base $BaseUrl -ArtifactName "registack-air-import.ps1" -DestinationPath $importPs1Path
 
 $cmdBody = '@echo off' + "`r`n" +
     'powershell -ExecutionPolicy Bypass -File "%~dp0registack-agent-detector.ps1" %*'
 Set-Content -Path $cmdPath -Value $cmdBody -Encoding ASCII
 
+$importCmdBody = '@echo off' + "`r`n" +
+    'powershell -ExecutionPolicy Bypass -File "%~dp0registack-air-import.ps1" %*'
+Set-Content -Path $importCmdPath -Value $importCmdBody -Encoding ASCII
+
 $configObject = @{
+    scan_profile = "persistent_selected_path"
+    selected_primary_scan_dir = $selectedScanDir
     default_scan_dirs = @($selectedScanDir)
 }
 $configObject | ConvertTo-Json -Depth 4 | Set-Content -Path $ConfigPath -Encoding UTF8
@@ -130,8 +178,12 @@ if (-not ($pathEntries | Where-Object { $_ -eq $InstallDir })) {
 }
 
 & $cmdPath --version | Out-Null
+& $importCmdPath --version | Out-Null
 
 Write-Host "Registack AIR Agent Detector installed successfully at $InstallDir"
-Write-Host "Selected detection path: $selectedScanDir"
+Write-Host "Registack AIR Importer installed successfully at $InstallDir"
+Write-Host "Primary detection path: $selectedScanDir"
+Write-Host "Default scan profile: persistent selected path"
 Write-Host "Config: $ConfigPath"
 Write-Host "Verify with: registack-agent-detector.cmd --version"
+Write-Host "Importer verify: registack-air-import.cmd --version"

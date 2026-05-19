@@ -2,14 +2,16 @@
 # Registack AIR — Internal Pre-Release. © Registack.
 set -euo pipefail
 
-BASE_URL="${REGISTACK_AGENT_DETECTOR_BASE_URL:-https://registack.eu/cli/registack-agent-detector}"
+BASE_URL="${REGISTACK_AGENT_DETECTOR_BASE_URL:-https://www.registack.eu/cli/registack-agent-detector}"
 TARGET_DIR="${TARGET_DIR:-/usr/local/bin}"
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/registack-agent-detector"
 CONFIG_PATH="${REGISTACK_AGENT_DETECTOR_CONFIG:-$CONFIG_DIR/config.json}"
 SCAN_CHOICE="${REGISTACK_AGENT_DETECTOR_SCAN_CHOICE:-}"
 BIN_NAME="registack-agent-detector"
+IMPORTER_NAME="registack-air-import"
 POINTER_NAME=".registack-agent-detector-config"
 TMP_FILE="$(mktemp)"
+TMP_IMPORTER_FILE="$(mktemp)"
 PROMPT_FOR_SCAN_DIR=true
 SELECTED_SCAN_DIR=""
 PICKER_LABEL="Choose folder in Finder..."
@@ -17,6 +19,7 @@ declare -a CANDIDATE_PATHS
 
 cleanup() {
   rm -f "$TMP_FILE"
+  rm -f "$TMP_IMPORTER_FILE"
 }
 trap cleanup EXIT
 
@@ -82,6 +85,9 @@ build_candidates() {
   add_candidate "$HOME/Applications"
   add_candidate "/Applications"
   add_candidate "$HOME/.registack"
+  add_candidate "$HOME/.codex"
+  add_candidate "$HOME/.cursor"
+  add_candidate "$HOME/.openclaw"
   add_candidate "$HOME/Documents"
   add_candidate "$HOME/Downloads"
   add_candidate "$HOME/Desktop"
@@ -175,7 +181,19 @@ pick_scan_dir() {
 
 pick_scan_dir
 
-escaped_item=$(printf '%s' "$SELECTED_SCAN_DIR" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')
+config_json="$(python3 - "$SELECTED_SCAN_DIR" <<'PY'
+import json
+import sys
+
+selected = sys.argv[1]
+payload = {
+    "scan_profile": "persistent_selected_path",
+    "selected_primary_scan_dir": selected,
+    "default_scan_dirs": [selected],
+}
+print(json.dumps(payload, indent=2))
+PY
+)"
 
 write_pointer_file() {
   local pointer_path="${TARGET_DIR}/${POINTER_NAME}"
@@ -185,26 +203,66 @@ write_pointer_file() {
   printf '%s\n' "$CONFIG_PATH" | sudo tee "$pointer_path" >/dev/null
 }
 
-curl -fsSL "${BASE_URL}/registack-agent-detector.py" -o "$TMP_FILE"
+fetch_artifact() {
+  local artifact_name="$1"
+  local destination="$2"
+  case "$BASE_URL" in
+    https://*|http://*)
+      curl --http1.1 -fsSL "${BASE_URL}/${artifact_name}" -o "$destination"
+      ;;
+    file://*)
+      python3 - "$BASE_URL" "$artifact_name" "$destination" <<'PY'
+import shutil
+import sys
+from pathlib import Path
+from urllib.parse import unquote, urlparse
 
-if mkdir -p "$TARGET_DIR" 2>/dev/null && install -m 0755 "$TMP_FILE" "${TARGET_DIR}/${BIN_NAME}" 2>/dev/null; then
+base_url, artifact_name, destination = sys.argv[1:4]
+parsed = urlparse(base_url)
+if parsed.scheme != "file":
+    raise SystemExit("unsupported file URL")
+base_path = Path(unquote(parsed.path))
+artifact_path = base_path / artifact_name
+if not artifact_path.exists():
+    raise SystemExit(f"missing artifact: {artifact_path}")
+shutil.copyfile(artifact_path, destination)
+PY
+      ;;
+    *)
+      if [ -d "$BASE_URL" ]; then
+        cp "$BASE_URL/${artifact_name}" "$destination"
+      else
+        echo "Unsupported base URL or path: $BASE_URL" >&2
+        exit 1
+      fi
+      ;;
+  esac
+}
+
+fetch_artifact "registack-agent-detector.py" "$TMP_FILE"
+fetch_artifact "registack-air-import.py" "$TMP_IMPORTER_FILE"
+
+if mkdir -p "$TARGET_DIR" 2>/dev/null \
+  && install -m 0755 "$TMP_FILE" "${TARGET_DIR}/${BIN_NAME}" 2>/dev/null \
+  && install -m 0755 "$TMP_IMPORTER_FILE" "${TARGET_DIR}/${IMPORTER_NAME}" 2>/dev/null; then
   :
 else
   sudo mkdir -p "$TARGET_DIR"
   sudo install -m 0755 "$TMP_FILE" "${TARGET_DIR}/${BIN_NAME}"
+  sudo install -m 0755 "$TMP_IMPORTER_FILE" "${TARGET_DIR}/${IMPORTER_NAME}"
 fi
 
 mkdir -p "$(dirname "$CONFIG_PATH")"
-cat > "$CONFIG_PATH" <<EOF
-{
-  "default_scan_dirs": [${escaped_item}]
-}
-EOF
+printf '%s\n' "$config_json" > "$CONFIG_PATH"
 write_pointer_file
 
 "${TARGET_DIR}/${BIN_NAME}" --version >/dev/null
+"${TARGET_DIR}/${IMPORTER_NAME}" --version >/dev/null
 
 echo "Registack AIR Agent Detector installed successfully at ${TARGET_DIR}/${BIN_NAME}"
-echo "Selected detection path: ${SELECTED_SCAN_DIR}"
+echo "Registack AIR Importer installed successfully at ${TARGET_DIR}/${IMPORTER_NAME}"
+echo "Primary detection path: ${SELECTED_SCAN_DIR}"
+echo "Default scan profile: persistent selected path"
 echo "Config: ${CONFIG_PATH}"
 echo "Verify with: ${BIN_NAME} --version"
+echo "Importer verify: ${IMPORTER_NAME} --version"

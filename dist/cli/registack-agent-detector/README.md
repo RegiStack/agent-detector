@@ -34,11 +34,17 @@ This repository is intended to support:
 - pilot evaluation
 - security review
 - controlled CLI installation from `registack.eu`
+- free client-side detection and local review prior to central AIR intake
 
 It is not positioned as:
 - a full AIR platform repository
 - an enterprise support portal
 - an open contribution project
+
+Control-plane boundary:
+- this detector is a free installable client
+- it performs local detection and keeps a local reviewed-detection list
+- central detection intake, agent registration, authorized-profile to functional-profile binding, and runtime governance remain in the licensed Registack AIR Control Plane
 
 During installation, you can now define the **default detection path** that
 the tool will scan when no `--scan-dir` argument is provided later.
@@ -51,7 +57,7 @@ It is no longer entered as a free-form path string.
 This directory is intended to be deployed under:
 
 ```text
-https://registack.eu/cli/registack-agent-detector/
+https://www.registack.eu/cli/registack-agent-detector/
 ```
 
 Install commands below assume that path.
@@ -63,7 +69,9 @@ The published web directory should contain:
 - `SECURITY.md`
 - all install and uninstall scripts
 - the Python detector
+- the Python AIR importer
 - the PowerShell wrapper
+- the PowerShell AIR importer wrapper
 - this `README.md`
 
 ## Assemble Publish Tree
@@ -83,7 +91,7 @@ dist/cli/registack-agent-detector/
 You can then sync that directory to the web host path for:
 
 ```text
-https://registack.eu/cli/registack-agent-detector/
+https://www.registack.eu/cli/registack-agent-detector/
 ```
 
 ## Install
@@ -91,48 +99,54 @@ https://registack.eu/cli/registack-agent-detector/
 ### macOS
 
 ```bash
-curl -fsSL https://registack.eu/cli/registack-agent-detector/install-macos.sh | bash
+curl --http1.1 -fsSL https://www.registack.eu/cli/registack-agent-detector/install-macos.sh | bash
 ```
 
 The installer presents a numbered list of valid detection paths plus a Finder
 folder-picker option.
+The selected path is stored persistently as the default scan path until
+uninstallation.
 This list may include the filesystem root `/` for full-machine scans.
 
 For automated use, select by number:
 
 ```bash
-curl -fsSL https://registack.eu/cli/registack-agent-detector/install-macos.sh | bash -s -- --scan-choice 1
+curl --http1.1 -fsSL https://www.registack.eu/cli/registack-agent-detector/install-macos.sh | bash -s -- --scan-choice 1
 ```
 
 ### Linux
 
 ```bash
-curl -fsSL https://registack.eu/cli/registack-agent-detector/install-linux.sh | bash
+curl --http1.1 -fsSL https://www.registack.eu/cli/registack-agent-detector/install-linux.sh | bash
 ```
 
 The installer presents a numbered list of valid detection paths plus a desktop
 folder-picker option when supported.
+The selected path is stored persistently as the default scan path until
+uninstallation.
 This list may include the filesystem root `/` for full-machine scans.
 
 For automated use, select by number:
 
 ```bash
-curl -fsSL https://registack.eu/cli/registack-agent-detector/install-linux.sh | bash -s -- --scan-choice 1
+curl --http1.1 -fsSL https://www.registack.eu/cli/registack-agent-detector/install-linux.sh | bash -s -- --scan-choice 1
 ```
 
 ### Windows
 
 ```powershell
-powershell -ExecutionPolicy Bypass -c "irm https://registack.eu/cli/registack-agent-detector/install-windows.ps1 | iex"
+powershell -ExecutionPolicy Bypass -c "irm https://www.registack.eu/cli/registack-agent-detector/install-windows.ps1 | iex"
 ```
 
 The installer presents a numbered list of valid detection paths plus a File
 Explorer folder-picker option.
+The selected path is stored persistently as the default scan path until
+uninstallation.
 
 For automated use, select by number:
 
 ```powershell
-& ([scriptblock]::Create((irm https://registack.eu/cli/registack-agent-detector/install-windows.ps1))) -ScanChoice 1
+& ([scriptblock]::Create((irm https://www.registack.eu/cli/registack-agent-detector/install-windows.ps1))) -ScanChoice 1
 ```
 
 ## Verify
@@ -144,11 +158,31 @@ registack-agent-detector --version
 registack-agent-detector --scan-default --output text
 ```
 
+`--scan-default` now runs the saved persistent default path and persists
+detection history, so newly installed agents inside that path appear with
+`"discovery_state": "new"` on the next scan.
+
+The installer also places the thin AIR importer on the path:
+
+```bash
+registack-air-import --version
+```
+
 ### Windows
 
 ```powershell
 registack-agent-detector.cmd --version
 registack-agent-detector.cmd --scan-default --output text
+```
+
+```powershell
+registack-air-import.cmd --version
+```
+
+Review the local detected list in CLI:
+
+```bash
+registack-agent-detector --scan-default --review
 ```
 
 ## Run Examples
@@ -196,6 +230,38 @@ Quiet JSON:
 registack-agent-detector --scan-dir . --scan-docker --output json --quiet
 ```
 
+## AIR Import
+
+The detector JSON now includes an `air_candidate` block per detection. It is
+AIR-shaped and can be imported with the bundled thin importer.
+
+Review the plan without posting anything:
+
+```bash
+registack-agent-detector --scan-default --output json | \
+registack-air-import --tenant-id tenant_000001 --base-url http://127.0.0.1:8092/admin/installer --review --dry-run
+```
+
+Review locally, record the reviewed list, and then explicitly decide whether to proceed to AIR import:
+
+```bash
+registack-agent-detector --scan-default --output json | \
+registack-air-import --tenant-id tenant_000001 --base-url http://127.0.0.1:8092/admin/installer --token "$REGISTACK_AIR_TOKEN" --review
+```
+
+Include known detections as well:
+
+```bash
+registack-agent-detector --scan-default --output json | \
+registack-air-import --tenant-id tenant_000001 --base-url http://127.0.0.1:8092/admin/installer --token "$REGISTACK_AIR_TOKEN" --include-known
+```
+
+Windows:
+
+```powershell
+registack-agent-detector.cmd --scan-default --output json | registack-air-import.cmd --tenant-id tenant_000001 --base-url http://127.0.0.1:8092/admin/installer --token $env:REGISTACK_AIR_TOKEN
+```
+
 ## CLI Flags
 
 - `--scan-dir <path>` repeatable
@@ -203,6 +269,7 @@ registack-agent-detector --scan-dir . --scan-docker --output json --quiet
 - `--scan-docker`
 - `--scan-kubernetes`
 - `--deep`
+- `--review`
 - `--output {json,text}`
 - `--quiet`
 - `--version`
@@ -214,8 +281,12 @@ registack-agent-detector --scan-dir . --scan-docker --output json --quiet
   "detections": [],
   "scan_metadata": {
     "timestamp": "2026-05-18T00:00:00+00:00",
-    "scanner_version": "0.1.0",
-    "output_format": "air-compatible"
+    "scanner_version": "0.1.6",
+    "output_format": "air-compatible",
+    "scan_paths": [],
+    "detection_count": 0,
+    "new_detection_count": 0,
+    "warnings": []
   }
 }
 ```
@@ -228,8 +299,19 @@ Detections include:
 - `source`
 - `confidence_score`
 - `operational_criticality`
+- `metadata_status`
+- `provider_name`
+- `operator_name`
+- `model_name`
+- `model_version`
+- `model_release_date`
+- `discovery_state`
+- `first_seen_at`
+- `last_seen_at`
+- `seen_count`
 - `evidence`
 - `air_record_type`
+- `air_candidate`
 - `air_payload`
 
 ## Exit Codes
@@ -243,19 +325,19 @@ Detections include:
 ### macOS
 
 ```bash
-curl -fsSL https://registack.eu/cli/registack-agent-detector/uninstall-macos.sh | bash
+curl --http1.1 -fsSL https://www.registack.eu/cli/registack-agent-detector/uninstall-macos.sh | bash
 ```
 
 ### Linux
 
 ```bash
-curl -fsSL https://registack.eu/cli/registack-agent-detector/uninstall-linux.sh | bash
+curl --http1.1 -fsSL https://www.registack.eu/cli/registack-agent-detector/uninstall-linux.sh | bash
 ```
 
 ### Windows
 
 ```powershell
-powershell -ExecutionPolicy Bypass -c "irm https://registack.eu/cli/registack-agent-detector/uninstall-windows.ps1 | iex"
+powershell -ExecutionPolicy Bypass -c "irm https://www.registack.eu/cli/registack-agent-detector/uninstall-windows.ps1 | iex"
 ```
 
 ## Local Development
@@ -264,6 +346,12 @@ Run directly:
 
 ```bash
 python3 registack-agent-detector.py --scan-dir . --output json
+```
+
+AIR importer directly:
+
+```bash
+python3 registack-air-import.py --tenant-id tenant_000001 --base-url http://127.0.0.1:8092/admin/installer --dry-run --input detector-output.json
 ```
 
 PowerShell wrapper:

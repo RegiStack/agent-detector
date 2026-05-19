@@ -130,32 +130,43 @@
       <p class="lead">
         Local-only detector for AI-agent candidates, runtime artifacts, Docker
         workloads, and Kubernetes manifests. Install from the terminal, select
-        the default detection path by number, and emit AIR-compatible JSON.
+        a persistent default path by number, and emit AIR-compatible JSON with
+        persistent new-installation detection inside that selected path. The
+        detector is a free client. Central registry intake and agent
+        registration stay in the licensed Registack AIR Control Plane.
       </p>
 
       <section class="grid">
         <article class="card">
           <h2>macOS</h2>
-          <p>Install and choose the default detection path by number or through Finder, including filesystem root when needed.</p>
-          <pre><code>curl -fsSL https://registack.eu/cli/registack-agent-detector/install-macos.sh | bash</code></pre>
+          <p>Install and choose the persistent default detection path by number or through Finder. If you want full-machine coverage, choose filesystem root <code>/</code>.</p>
+          <pre><code>curl --http1.1 -fsSL https://www.registack.eu/cli/registack-agent-detector/install-macos.sh | bash</code></pre>
         </article>
         <article class="card">
           <h2>Linux</h2>
-          <p>Install and choose the default detection path by number or desktop file picker when supported, including filesystem root when needed.</p>
-          <pre><code>curl -fsSL https://registack.eu/cli/registack-agent-detector/install-linux.sh | bash</code></pre>
+          <p>Install and choose the persistent default detection path by number or desktop file picker when supported. If you want full-machine coverage, choose filesystem root <code>/</code>.</p>
+          <pre><code>curl --http1.1 -fsSL https://www.registack.eu/cli/registack-agent-detector/install-linux.sh | bash</code></pre>
         </article>
         <article class="card">
           <h2>Windows</h2>
-          <p>Run the PowerShell installer and select the default detection path by number or through File Explorer.</p>
-          <pre><code>powershell -ExecutionPolicy Bypass -c "irm https://registack.eu/cli/registack-agent-detector/install-windows.ps1 | iex"</code></pre>
+          <p>Run the PowerShell installer and select the persistent default detection path by number or through File Explorer.</p>
+          <pre><code>powershell -ExecutionPolicy Bypass -c "irm https://www.registack.eu/cli/registack-agent-detector/install-windows.ps1 | iex"</code></pre>
         </article>
       </section>
 
       <section class="section">
         <h2>Verify</h2>
-        <p>Once installed, verify the CLI and run the saved default detection path explicitly.</p>
+        <p>Once installed, verify the CLI, run the saved persistent default path explicitly, and inspect the bundled AIR importer.</p>
         <pre><code>registack-agent-detector --version
-registack-agent-detector --scan-default --output json</code></pre>
+registack-agent-detector --scan-default --output json
+registack-agent-detector --scan-default --review
+registack-air-import --version</code></pre>
+      </section>
+
+      <section class="section">
+        <h2>AIR Import</h2>
+        <p>The detector JSON now contains an <code>air_candidate</code> block per detection. Use the bundled importer to review detections locally, record them as reviewed, and then explicitly decide whether to proceed to AIR detection intake.</p>
+        <pre><code>registack-agent-detector --scan-default --output json | registack-air-import --tenant-id tenant_000001 --base-url http://127.0.0.1:8092/admin/installer --review --dry-run</code></pre>
       </section>
 
       <section class="section">
@@ -163,7 +174,10 @@ registack-agent-detector --scan-default --output json</code></pre>
         <div class="note">
           No manual path typing is required during installation. The installer presents a
           numbered list of valid detection paths and can also open a system folder picker.
-          It stores the selected default path for later scans.
+          It stores the selected path persistently until uninstallation and marks newly
+          observed agent installations inside that path as new on later scans. Reviewed
+          detections are then kept locally until they are transferred into the central
+          AIR control plane.
         </div>
       </section>
 
@@ -175,6 +189,8 @@ registack-agent-detector --scan-default --output json</code></pre>
           <a href="./SECURITY.md">SECURITY.md</a>
           <a href="./registack-agent-detector.py">registack-agent-detector.py</a>
           <a href="./registack-agent-detector.ps1">registack-agent-detector.ps1</a>
+          <a href="./registack-air-import.py">registack-air-import.py</a>
+          <a href="./registack-air-import.ps1">registack-air-import.ps1</a>
           <a href="./install-macos.sh">install-macos.sh</a>
           <a href="./install-linux.sh">install-linux.sh</a>
           <a href="./install-windows.ps1">install-windows.ps1</a>
