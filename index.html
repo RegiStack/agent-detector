@@ -160,13 +160,26 @@
         <pre><code>registack-agent-detector --version
 registack-agent-detector --scan-default --output json
 registack-agent-detector --scan-default --review
-registack-air-import --version</code></pre>
+registack-air-import --version
+registack-air-link --version</code></pre>
+      </section>
+
+      <section class="section">
+        <h2>Tenant Binding</h2>
+        <p>Register or bind a tenant in the AIR Control Plane, then attach the local detector to that tenant and optionally register this machine as a managed device.</p>
+        <pre><code>registack-air-link --base-url http://127.0.0.1:8092/admin/installer --token "$REGISTACK_AIR_TOKEN" register-tenant --customer-id customer_000001 --name "Pilot Tenant" --slug pilot-tenant --bind
+registack-air-link --base-url http://127.0.0.1:8092/admin/installer --token "$REGISTACK_AIR_TOKEN" register-device --device-label "Eduard MacBook Air"</code></pre>
       </section>
 
       <section class="section">
         <h2>AIR Import</h2>
-        <p>The detector JSON now contains an <code>air_candidate</code> block per detection. Use the bundled importer to review detections locally, record them as reviewed, and then explicitly decide whether to proceed to AIR detection intake.</p>
-        <pre><code>registack-agent-detector --scan-default --output json | registack-air-import --tenant-id tenant_000001 --base-url http://127.0.0.1:8092/admin/installer --review --dry-run</code></pre>
+        <p>The detector JSON now contains an <code>air_candidate</code> block per detection, plus a guideline-based <code>high_risk_assessment</code> and an AIR-shaped <code>applicability_hint</code>. These labels are derived from the European Commission draft guidelines on the classification of high-risk AI systems published on 19 May 2026. Use the bundled importer to review detections locally, record them as reviewed, and then explicitly decide whether to proceed to AIR detection intake. The review output now also surfaces the high-risk and applicability snapshot, the parsed <code>actual_agent_profile</code>, resolved profile sources, and captured skill/context/prompt artifact previews. After tenant binding, the importer can reuse the saved AIR base URL and tenant ID automatically.</p>
+        <pre><code>registack-agent-detector --scan-default --output json | registack-air-import --review --dry-run</code></pre>
+      </section>
+
+      <section class="section">
+        <h2>Actual Agent Profile</h2>
+        <p>For managed or otherwise profile-bearing agents, the detector JSON also includes an <code>agent_identity</code> block. It can expose the detected agent root, identity bundle paths, the parsed <code>actual-profile.json</code>, and preview content from skill and context artifacts such as <code>SKILL.md</code>, <code>README.md</code>, <code>manifest.json</code>, and <code>prompts.json</code>.</p>
       </section>
 
       <section class="section">
@@ -191,6 +204,8 @@ registack-air-import --version</code></pre>
           <a href="./registack-agent-detector.ps1">registack-agent-detector.ps1</a>
           <a href="./registack-air-import.py">registack-air-import.py</a>
           <a href="./registack-air-import.ps1">registack-air-import.ps1</a>
+          <a href="./registack-air-link.py">registack-air-link.py</a>
+          <a href="./registack-air-link.ps1">registack-air-link.ps1</a>
           <a href="./install-macos.sh">install-macos.sh</a>
           <a href="./install-linux.sh">install-linux.sh</a>
           <a href="./install-windows.ps1">install-windows.ps1</a>

@@ -19,12 +19,13 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
-VERSION = "0.2.0"
+VERSION = "0.3.2"
 ENV_BASE_URL = "REGISTACK_AIR_BASE_URL"
 ENV_TOKEN = "REGISTACK_AIR_TOKEN"
 ENV_CONFIG_PATH = "REGISTACK_AGENT_DETECTOR_CONFIG"
 ENV_STATE_PATH = "REGISTACK_AGENT_DETECTOR_STATE"
 CONFIG_POINTER_FILENAME = ".registack-agent-detector-config"
+AIR_BINDING_KEY = "air_binding"
 
 REVIEW_STATE_PENDING = "pending"
 REVIEW_STATE_REVIEWED = "reviewed"
@@ -63,7 +64,7 @@ class ImporterError(Exception):
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Import AIR candidates from Registack detector JSON.")
     parser.add_argument("--input", default="-", help="Path to detector JSON file, or - for stdin.")
-    parser.add_argument("--tenant-id", required=True, help="AIR tenant ID to import into.")
+    parser.add_argument("--tenant-id", default="", help="AIR tenant ID to import into. Defaults to the bound AIR tenant.")
     parser.add_argument(
         "--base-url",
         default=os.environ.get(ENV_BASE_URL, ""),
@@ -145,6 +146,22 @@ def load_state() -> dict:
     return payload if isinstance(payload, dict) else {}
 
 
+def load_config() -> dict:
+    path = default_config_path()
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def load_binding(config: dict) -> dict:
+    binding = config.get(AIR_BINDING_KEY, {})
+    return binding if isinstance(binding, dict) else {}
+
+
 def save_state(payload: dict) -> None:
     path = default_state_path()
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -193,6 +210,68 @@ def request_payload(candidate: dict) -> dict:
             continue
         payload[key] = value
     return payload
+
+
+def compact_json_preview(value: object, limit: int = 320) -> str:
+    if value in (None, "", [], {}):
+        return "-"
+    try:
+        text = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+    except TypeError:
+        text = str(value)
+    if len(text) <= limit:
+        return text
+    return text[: limit - 3] + "..."
+
+
+def sample_values(values: object, limit: int = 3) -> str:
+    if not isinstance(values, list):
+        return "-"
+    items = [str(value).strip() for value in values if str(value).strip()]
+    if not items:
+        return "-"
+    if len(items) <= limit:
+        return ", ".join(items)
+    return f"{', '.join(items[:limit])}, +{len(items) - limit} more"
+
+
+def sample_artifact_paths(artifacts: object, limit: int = 3) -> str:
+    if not isinstance(artifacts, list):
+        return "-"
+    items: list[str] = []
+    for artifact in artifacts:
+        if not isinstance(artifact, dict):
+            continue
+        path_value = first_non_empty(artifact.get("relative_path"), artifact.get("path"))
+        if path_value:
+            items.append(path_value)
+    if not items:
+        return "-"
+    if len(items) <= limit:
+        return ", ".join(items)
+    return f"{', '.join(items[:limit])}, +{len(items) - limit} more"
+
+
+def sample_match_labels(values: object, limit: int = 3) -> str:
+    if not isinstance(values, list):
+        return "-"
+    items: list[str] = []
+    for value in values:
+        if isinstance(value, dict):
+            label = first_non_empty(value.get("point"), value.get("label"))
+            if value.get("point") and value.get("label"):
+                label = f"{value.get('point')} {value.get('label')}"
+            if label:
+                items.append(str(label))
+        else:
+            text = str(value).strip()
+            if text:
+                items.append(text)
+    if not items:
+        return "-"
+    if len(items) <= limit:
+        return ", ".join(items)
+    return f"{', '.join(items[:limit])}, +{len(items) - limit} more"
 
 
 def build_endpoint(base_url: str, tenant_id: str, record_type: str) -> str:
@@ -269,7 +348,7 @@ def prompt_yes_no(prompt: str, default: bool = False) -> bool:
     return normalized in {"y", "yes"}
 
 
-def prepare_actions(detections: list[object], include_known: bool) -> list[dict]:
+def prepare_actions(detections: list[object], include_known: bool, tenant_id: str, base_url: str) -> list[dict]:
     specialized_paths: dict[str, set[str]] = {}
     for detection in detections:
         if not isinstance(detection, dict):
@@ -326,7 +405,14 @@ def prepare_actions(detections: list[object], include_known: bool) -> list[dict]
             continue
         action["candidate"] = candidate
         action["record_type"] = record_type
+        action["endpoint"] = build_endpoint(base_url, tenant_id, record_type)
         action["payload"] = request_payload(candidate)
+        if isinstance(detection.get("agent_identity"), dict) and detection.get("agent_identity"):
+            action["payload"]["agent_identity"] = detection["agent_identity"]
+        if isinstance(detection.get("high_risk_assessment"), dict) and detection.get("high_risk_assessment"):
+            action["payload"]["high_risk_assessment"] = detection["high_risk_assessment"]
+        if isinstance(detection.get("applicability_hint"), dict) and detection.get("applicability_hint"):
+            action["payload"]["applicability_hint"] = detection["applicability_hint"]
         actions.append(action)
     return actions
 
@@ -386,6 +472,75 @@ def render_review(actions: list[dict], tenant_id: str, base_url: str, dry_run: b
                 f"{first_non_empty(candidate.get('operational_criticality'), '-')}"
             )
             lines.append(f"     path: {detection.get('path', '')}")
+            agent_identity = detection.get("agent_identity", {}) if isinstance(detection, dict) else {}
+            if isinstance(agent_identity, dict) and agent_identity:
+                actual_profile = agent_identity.get("actual_agent_profile", {})
+                lines.append(f"     agent_root: {first_non_empty(agent_identity.get('agent_root_path'), '-')}")
+                lines.append(f"     actual_agent_profile: {compact_json_preview(actual_profile)}")
+                lines.append(
+                    "     skill/context/prompt artifacts: "
+                    f"{len(agent_identity.get('skill_artifacts', []))} / "
+                    f"{len(agent_identity.get('context_artifacts', []))} / "
+                    f"{len(agent_identity.get('prompt_artifacts', []))}"
+                )
+                lines.append(
+                    "     skill_dirs/context_dirs: "
+                    f"{len(agent_identity.get('skill_directory_paths', []))} / "
+                    f"{len(agent_identity.get('context_directory_paths', []))}"
+                )
+                lines.append(
+                    f"     skill_paths_sample: {sample_values(agent_identity.get('skill_directory_paths', []))}"
+                )
+                lines.append(
+                    f"     context_paths_sample: {sample_values(agent_identity.get('context_directory_paths', []))}"
+                )
+                lines.append(
+                    f"     artifact_samples: {sample_artifact_paths(agent_identity.get('skill_artifacts', []))}"
+                )
+                resolved_sources = agent_identity.get("resolved_profile_sources", [])
+                if isinstance(resolved_sources, list) and resolved_sources:
+                    lines.append(
+                        "     resolved_profile_sources: "
+                        + sample_values(
+                            [
+                                first_non_empty(source.get("resolved_path"), source.get("source"))
+                                for source in resolved_sources
+                                if isinstance(source, dict)
+                            ]
+                        )
+                    )
+            high_risk_assessment = detection.get("high_risk_assessment", {}) if isinstance(detection, dict) else {}
+            if isinstance(high_risk_assessment, dict) and high_risk_assessment:
+                lines.append(
+                    "     high_risk_assessment: "
+                    f"{first_non_empty(high_risk_assessment.get('provisional_outcome'), '-')} / "
+                    f"basis={first_non_empty(high_risk_assessment.get('classification_basis'), '-')}"
+                )
+                lines.append(
+                    "     annex_matches: "
+                    f"{sample_match_labels(high_risk_assessment.get('annex_i_sectors', []))} / "
+                    f"{sample_match_labels(high_risk_assessment.get('annex_iii_matches', []))}"
+                )
+                lines.append(
+                    "     public_authority/profiling/review: "
+                    f"{bool(high_risk_assessment.get('public_authority_use'))} / "
+                    f"{bool(high_risk_assessment.get('profiling_indicator'))} / "
+                    f"{bool(high_risk_assessment.get('review_required'))}"
+                )
+            applicability_hint = detection.get("applicability_hint", {}) if isinstance(detection, dict) else {}
+            if isinstance(applicability_hint, dict) and applicability_hint:
+                lines.append(
+                    "     applicability_hint: "
+                    f"{first_non_empty(applicability_hint.get('status'), '-')} / "
+                    f"{first_non_empty(applicability_hint.get('use_case_category'), '-')}"
+                )
+                lines.append(
+                    "     oversight/fria/dpia/eu_db: "
+                    f"{bool(applicability_hint.get('requires_human_oversight'))} / "
+                    f"{bool(applicability_hint.get('requires_fria'))} / "
+                    f"{bool(applicability_hint.get('requires_dpia'))} / "
+                    f"{bool(applicability_hint.get('requires_eu_database_registration'))}"
+                )
             warnings = candidate.get("validation_warnings", [])
             if isinstance(warnings, list) and warnings:
                 lines.append(f"     validation_warnings: {', '.join(str(value) for value in warnings)}")
@@ -530,13 +685,21 @@ def build_summary(args: argparse.Namespace, actions: list[dict], base_url: str) 
 def main() -> int:
     args = parse_args()
     detector_payload = load_detector_json(args.input)
+    config = load_config()
+    binding = load_binding(config)
     detections = detector_payload.get("detections", [])
+
+    args.tenant_id = first_non_empty(args.tenant_id, binding.get("tenant_id", ""))
+    args.base_url = first_non_empty(args.base_url, os.environ.get(ENV_BASE_URL, ""), binding.get("base_url", ""))
+    args.token = first_non_empty(args.token, os.environ.get(ENV_TOKEN, ""), binding.get("token", ""))
 
     if not args.dry_run and not args.token:
         raise ImporterError(f"--token is required or set {ENV_TOKEN}")
+    if not args.tenant_id:
+        raise ImporterError("tenant ID is required via --tenant-id or a saved AIR tenant binding")
     base_url = normalize_base_url(args.base_url) if not args.dry_run or args.base_url else args.base_url.strip().rstrip("/")
 
-    actions = prepare_actions(detections, include_known=args.include_known)
+    actions = prepare_actions(detections, include_known=args.include_known, tenant_id=args.tenant_id, base_url=base_url)
 
     if args.review:
         print(render_review(actions, args.tenant_id, base_url, args.dry_run))

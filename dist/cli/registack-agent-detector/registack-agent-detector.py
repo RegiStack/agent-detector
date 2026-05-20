@@ -22,7 +22,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable
 
-VERSION = "0.1.6"
+VERSION = "0.1.7"
 OUTPUT_FORMAT = "air-compatible"
 ENV_CONFIG_PATH = "REGISTACK_AGENT_DETECTOR_CONFIG"
 ENV_STATE_PATH = "REGISTACK_AGENT_DETECTOR_STATE"
@@ -40,6 +40,457 @@ REVIEW_STATE_PENDING = "pending"
 REVIEW_STATE_REVIEWED = "reviewed"
 AIR_SYNC_STATE_NOT_IMPORTED = "not_imported"
 AIR_SYNC_STATE_IMPORTED = "imported_detection_record"
+
+HIGH_RISK_GUIDELINES_URL = (
+    "https://digital-strategy.ec.europa.eu/en/library/"
+    "draft-commission-guidelines-classification-high-risk-ai-systems"
+)
+HIGH_RISK_GUIDELINES_PUBLICATION_DATE = "2026-05-19"
+
+ANNEX_I_SECTOR_RULES = [
+    {
+        "id": "medical_devices",
+        "label": "medical devices / in vitro diagnostic medical devices",
+        "patterns": [
+            "medical device",
+            "medtech",
+            "clinical decision support",
+            "diagnostic imaging",
+            "in vitro diagnostic",
+            "ivd",
+            "patient monitoring",
+        ],
+    },
+    {
+        "id": "machinery",
+        "label": "machinery / industrial equipment",
+        "patterns": [
+            "machinery",
+            "industrial robot",
+            "industrial equipment",
+            "robotic arm",
+            "factory safety",
+        ],
+    },
+    {
+        "id": "automotive",
+        "label": "automotive / road vehicle safety",
+        "patterns": [
+            "automotive",
+            "vehicle safety",
+            "driver assistance",
+            "adas",
+            "autonomous driving",
+            "braking system",
+        ],
+    },
+    {
+        "id": "aviation",
+        "label": "aviation / aircraft safety",
+        "patterns": [
+            "aviation",
+            "aircraft",
+            "flight control",
+            "avionics",
+            "drone safety",
+        ],
+    },
+    {
+        "id": "radio_equipment",
+        "label": "radio equipment / connected safety equipment",
+        "patterns": [
+            "radio equipment",
+            "wireless safety",
+            "connected safety equipment",
+        ],
+    },
+    {
+        "id": "gas_pressure",
+        "label": "gas / pressure / explosive-atmosphere equipment",
+        "patterns": [
+            "pressure equipment",
+            "gas appliance",
+            "gaseous fuel",
+            "explosive atmosphere",
+            "atex",
+        ],
+    },
+]
+
+ANNEX_I_SAFETY_PATTERNS = [
+    "safety component",
+    "safety-critical",
+    "failsafe",
+    "functional safety",
+    "collision avoidance",
+    "protective system",
+    "notified body",
+    "third-party conformity assessment",
+    "conformity assessment",
+    "ce marking",
+]
+
+ANNEX_III_RULES = [
+    {
+        "point": "1(a)",
+        "area": "biometrics",
+        "label": "remote biometric identification",
+        "patterns": [
+            "remote biometric identification",
+            "facial recognition",
+            "face recognition",
+            "voice identification",
+            "fingerprint identification",
+            "iris recognition",
+            "gait recognition",
+        ],
+    },
+    {
+        "point": "1(b)",
+        "area": "biometrics",
+        "label": "biometric categorisation",
+        "patterns": [
+            "biometric categorisation",
+            "biometric categorization",
+            "categorise by biometric",
+            "categorize by biometric",
+        ],
+    },
+    {
+        "point": "1(c)",
+        "area": "biometrics",
+        "label": "emotion recognition",
+        "patterns": [
+            "emotion recognition",
+            "emotion detection",
+            "affect recognition",
+            "voice emotion",
+            "facial emotion",
+        ],
+    },
+    {
+        "point": "2",
+        "area": "critical_infrastructure",
+        "label": "critical infrastructure / critical digital infrastructure",
+        "patterns": [
+            "critical infrastructure",
+            "critical digital infrastructure",
+            "road traffic",
+            "traffic management",
+            "water supply",
+            "gas supply",
+            "heating supply",
+            "district heating",
+            "electricity supply",
+            "power grid",
+            "electrical grid",
+            "grid dispatch",
+        ],
+    },
+    {
+        "point": "3(a)",
+        "area": "education",
+        "label": "education access / admission / assignment",
+        "patterns": [
+            "school admission",
+            "university admission",
+            "education admission",
+            "student assignment",
+            "assign students",
+            "educational placement",
+        ],
+    },
+    {
+        "point": "3(b)",
+        "area": "education",
+        "label": "evaluation of learning outcomes",
+        "patterns": [
+            "learning outcomes",
+            "exam scoring",
+            "grading",
+            "student grading",
+            "assessment of learning",
+        ],
+    },
+    {
+        "point": "3(c)",
+        "area": "education",
+        "label": "assessment of appropriate education level",
+        "patterns": [
+            "placement test",
+            "education level assessment",
+            "appropriate level of education",
+        ],
+    },
+    {
+        "point": "3(d)",
+        "area": "education",
+        "label": "monitoring or detecting prohibited student behaviour",
+        "patterns": [
+            "student monitoring",
+            "exam proctoring",
+            "detect cheating",
+            "prohibited behaviour of students",
+        ],
+    },
+    {
+        "point": "4(a)",
+        "area": "employment",
+        "label": "recruitment or selection of natural persons",
+        "patterns": [
+            "recruitment",
+            "hiring",
+            "candidate screening",
+            "cv screening",
+            "resume ranking",
+            "applicant ranking",
+            "interview scoring",
+            "talent acquisition",
+        ],
+    },
+    {
+        "point": "4(b)",
+        "area": "employment",
+        "label": "management of work-related relationships",
+        "patterns": [
+            "employee monitoring",
+            "performance evaluation",
+            "promotion decision",
+            "termination decision",
+            "task allocation",
+            "shift assignment",
+            "work-related relationship",
+        ],
+    },
+    {
+        "point": "5(a)",
+        "area": "essential_services",
+        "label": "eligibility for essential public assistance benefits and services",
+        "patterns": [
+            "benefit eligibility",
+            "public assistance",
+            "social benefits",
+            "welfare eligibility",
+            "healthcare benefits",
+            "housing benefits",
+        ],
+    },
+    {
+        "point": "5(b)",
+        "area": "essential_services",
+        "label": "creditworthiness or credit score of natural persons",
+        "patterns": [
+            "creditworthiness",
+            "credit score",
+            "consumer lending",
+            "loan approval",
+            "mortgage approval",
+        ],
+    },
+    {
+        "point": "5(c)",
+        "area": "essential_services",
+        "label": "life and health insurance risk assessment or pricing",
+        "patterns": [
+            "insurance underwriting",
+            "premium pricing",
+            "life insurance risk",
+            "health insurance risk",
+        ],
+    },
+    {
+        "point": "5(d)",
+        "area": "essential_services",
+        "label": "emergency calls or first-response prioritisation",
+        "patterns": [
+            "emergency call",
+            "911 dispatch",
+            "112 dispatch",
+            "first response",
+            "ambulance dispatch",
+            "fire dispatch",
+            "dispatch prioritisation",
+        ],
+    },
+    {
+        "point": "6",
+        "area": "law_enforcement",
+        "label": "law enforcement use cases",
+        "patterns": [
+            "law enforcement",
+            "police",
+            "criminal offence",
+            "crime risk",
+            "reoffending",
+            "evidence reliability",
+            "suspect profiling",
+        ],
+    },
+    {
+        "point": "7",
+        "area": "migration_border_control",
+        "label": "migration, asylum, and border control management",
+        "patterns": [
+            "visa application",
+            "asylum application",
+            "border control",
+            "residence permit",
+            "migration risk",
+            "polygraph",
+            "irregular migration",
+        ],
+    },
+    {
+        "point": "8(a)",
+        "area": "justice",
+        "label": "assistance to judicial authorities or alternative dispute resolution",
+        "patterns": [
+            "judicial authority",
+            "court decision",
+            "tribunal",
+            "alternative dispute resolution",
+            "arbitration",
+            "mediation outcome",
+        ],
+    },
+    {
+        "point": "8(b)",
+        "area": "democratic_processes",
+        "label": "influencing the outcome of elections or referendums",
+        "patterns": [
+            "election influence",
+            "influence election",
+            "referendum influence",
+            "voter persuasion",
+            "campaign microtargeting",
+        ],
+    },
+]
+
+PUBLIC_AUTHORITY_PATTERNS = [
+    "public authority",
+    "public administration",
+    "government agency",
+    "ministry",
+    "municipality",
+    "law enforcement",
+    "police",
+    "court",
+    "judicial authority",
+    "border control",
+]
+
+PROFILING_PATTERNS = [
+    "profiling",
+    "profile natural person",
+    "risk score",
+    "credit score",
+    "ranking of natural persons",
+    "trustworthiness score",
+    "suitability score",
+    "recidivism score",
+    "behavioural score",
+]
+
+MATERIAL_DECISION_PATTERNS = [
+    "grant or deny",
+    "eligibility",
+    "score",
+    "ranking",
+    "select candidate",
+    "hire candidate",
+    "terminate employee",
+    "dispatch",
+    "prioritisation",
+    "prioritization",
+    "recommend decision",
+    "admit student",
+    "creditworthiness",
+]
+
+FILTER_PROCEDURAL_PATTERNS = [
+    "indexing",
+    "index documents",
+    "document indexing",
+    "ocr",
+    "optical character recognition",
+    "detect duplicates",
+    "deduplicate",
+    "classify incoming documents",
+    "sort incoming applications",
+    "transforms unstructured data into structured data",
+    "transform unstructured data",
+]
+
+FILTER_PREPARATORY_PATTERNS = [
+    "searching",
+    "document search",
+    "retrieval",
+    "summarise",
+    "summarize",
+    "translation",
+    "transcription",
+    "references to relevant legal provisions",
+    "supporting information",
+]
+
+FILTER_IMPROVEMENT_PATTERNS = [
+    "quality assurance",
+    "proofread",
+    "error checking",
+    "consistency check",
+    "traceability",
+    "accessibility conversion",
+    "interoperability conversion",
+]
+
+FILTER_PATTERN_REVIEW_PATTERNS = [
+    "decision-making patterns",
+    "deviations from prior decision-making patterns",
+    "pattern detection",
+    "anomaly detection",
+    "quality-control review",
+]
+
+AGENTIC_SYSTEM_PATTERNS = [
+    "agentic",
+    "multi-agent",
+    "orchestrator",
+    "workflow engine",
+    "langgraph",
+    "crewai",
+    "autogen",
+]
+
+GPAI_PATTERNS = [
+    "gpt-",
+    "openai",
+    "anthropic",
+    "claude",
+    "gemini",
+    "llama",
+    "mistral",
+]
+
+IDENTITY_BUNDLE_FILES = (
+    "identity.json",
+    "actual-profile.json",
+    "authorized-profile.json",
+    "functional-profile.json",
+    "manifest.json",
+    "governance.json",
+    "installation.json",
+    "runtime.json",
+    "prompts.json",
+    "skills.json",
+)
+
+SKILL_DIR_NAMES = {"skills", ".agents/skills"}
+CONTEXT_DIR_NAMES = {"context", "contexts"}
+ARTIFACT_PREVIEW_MAX_CHARS = 2000
+ARTIFACT_SCAN_MAX_DEPTH = 4
+ARTIFACT_PREVIEW_LIMIT = 8
+ARTIFACT_PATH_LIMIT = 80
 
 MODEL_EXTENSIONS = {
     ".onnx": "ONNX model artifact",
@@ -203,6 +654,9 @@ class Detection:
     air_record_type: str = AIR_RECORD_TYPE_DETECTION
     air_candidate: dict = field(default_factory=dict)
     air_payload: dict = field(default_factory=dict)
+    high_risk_assessment: dict = field(default_factory=dict)
+    applicability_hint: dict = field(default_factory=dict)
+    agent_identity: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -548,6 +1002,145 @@ def merge_metadata(*items: ParsedMetadata) -> ParsedMetadata:
     return merged
 
 
+def as_bool(value: object) -> bool:
+    if isinstance(value, bool):
+        return value
+    normalized = str(value).strip().lower()
+    return normalized in {"1", "true", "yes", "y", "on"}
+
+
+def parse_structured_mapping(path: Path, sample: str) -> dict[str, str]:
+    lowered_name = path.name.lower()
+    suffix = path.suffix.lower()
+    if lowered_name == "identity.json" or suffix == ".json":
+        payload = parse_json_object(sample)
+        if payload:
+            return flatten_mapping(payload)
+        return {}
+    if suffix == ".toml":
+        return parse_toml_like_mapping(sample)
+    if lowered_name in RUNTIME_ARTIFACT_NAMES or lowered_name in AGENT_CONFIG_FILES or lowered_name == ".registack.yaml":
+        return parse_yamlish_mapping(sample)
+    if suffix in {".yaml", ".yml"}:
+        return parse_yamlish_mapping(sample)
+    return {}
+
+
+def extract_structured_regulatory_context(path: Path, sample: str) -> dict[str, object]:
+    flattened = parse_structured_mapping(path, sample)
+    if not flattened:
+        return {}
+    return {
+        "intended_purpose": first_non_empty(
+            flattened.get("intended_purpose"),
+            flattened.get("purpose"),
+            flattened.get("agent_purpose"),
+        ),
+        "use_case_category": first_non_empty(
+            flattened.get("use_case_category"),
+            flattened.get("risk_category"),
+        ),
+        "annex_iii_category": first_non_empty(
+            flattened.get("annex_iii_category"),
+            flattened.get("annexiii_category"),
+            flattened.get("high_risk_use_case"),
+        ),
+        "decision_impact": first_non_empty(flattened.get("decision_impact")),
+        "public_authority_use": as_bool(
+            first_non_empty(
+                flattened.get("public_authority_use"),
+                flattened.get("on_behalf_of_public_authority"),
+            )
+        ),
+        "high_risk_candidate": as_bool(first_non_empty(flattened.get("high_risk_candidate"))),
+        "requires_human_oversight": as_bool(first_non_empty(flattened.get("requires_human_oversight"))),
+    }
+
+
+def collect_pattern_hits(text: str, patterns: Iterable[str]) -> list[str]:
+    hits: list[str] = []
+    for pattern in patterns:
+        if pattern in text and pattern not in hits:
+            hits.append(pattern)
+    return hits
+
+
+def normalize_point_slug(point: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", point.lower()).strip("_")
+
+
+def sha256_text(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def truncate_preview(text: str, max_chars: int = ARTIFACT_PREVIEW_MAX_CHARS) -> str:
+    if len(text) <= max_chars:
+        return text
+    return text[:max_chars].rstrip() + "\n...[truncated]"
+
+
+def safe_read_text(path: Path) -> str:
+    try:
+        return path.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return ""
+
+
+def safe_read_json(path: Path) -> dict | list | None:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if isinstance(payload, (dict, list)):
+        return payload
+    return None
+
+
+def relative_to_root(path: Path, root: Path) -> str:
+    try:
+        return str(path.relative_to(root))
+    except ValueError:
+        return str(path)
+
+
+def resolve_profile_source_path(agent_root: Path, source_value: str) -> Path | None:
+    raw = str(source_value).strip()
+    if not raw or raw == "local_folder":
+        return None
+    candidate = Path(raw).expanduser()
+    if candidate.is_absolute() and candidate.exists():
+        return candidate
+    search_roots = [agent_root / "source", agent_root]
+    for base in search_roots:
+        resolved = base / raw
+        if resolved.exists():
+            return resolved
+    return None
+
+
+def looks_like_context_artifact(path: Path) -> bool:
+    lowered = str(path).lower()
+    name = path.name.lower()
+    return (
+        "/context/" in lowered
+        or "/contexts/" in lowered
+        or "context" in name
+        or "prompt" in name
+        or name in {"readme.md", "manifest.json", "prompts.json"}
+    )
+
+
+def looks_like_skill_artifact(path: Path) -> bool:
+    lowered = str(path).lower()
+    name = path.name.lower()
+    return (
+        name == "skill.md"
+        or "/skills/" in lowered
+        or name == "skills.json"
+        or name == "registack.json"
+    )
+
+
 def normalize_air_confidence(score: float) -> str:
     if score >= 0.85:
         return "high"
@@ -821,11 +1414,412 @@ class Detector:
         self.seen_detection_keys: set[tuple[str, str, str, str]] = set()
         self.history_state = load_state()
         self.new_detection_count = 0
+        self.high_risk_candidate_count = 0
+        self.annex_i_candidate_count = 0
+        self.annex_iii_candidate_count = 0
+        self.article_6_3_review_count = 0
 
     def warn(self, message: str) -> None:
         self.warnings.append(message)
         if not self.quiet:
             print(f"warning: {message}", file=sys.stderr)
+
+    def infer_value_chain_role(self, detection: Detection) -> str:
+        if detection.detection_type in {"container_runtime_detection", "kubernetes_workload_detection", "local_endpoint_detection"}:
+            return "deployer"
+        if detection.detection_type in {"registack_marker_file", "agent_config_file", "runtime_artifact"}:
+            return "provider-or-deployer"
+        if detection.detection_type == "model_artifact":
+            return "model-integrator"
+        return "unknown"
+
+    def locate_agent_root(self, path_value: str) -> Path | None:
+        path = Path(path_value).expanduser()
+        current = path if path.is_dir() else path.parent
+        for candidate in [current, *current.parents]:
+            if any((candidate / name).exists() for name in ("identity.json", "actual-profile.json", ".registack.yaml")):
+                return candidate
+        return None
+
+    def build_artifact_preview(self, path: Path, kind: str, root: Path) -> dict[str, object]:
+        text = safe_read_text(path)
+        preview = truncate_preview(text) if text else ""
+        payload: dict[str, object] = {
+            "path": str(path),
+            "relative_path": relative_to_root(path, root),
+            "kind": kind,
+        }
+        if preview:
+            payload["content_preview"] = preview
+            payload["content_sha256"] = sha256_text(text)
+        return payload
+
+    def collect_agent_identity(self, path_value: str) -> dict[str, object]:
+        agent_root = self.locate_agent_root(path_value)
+        if agent_root is None:
+            return {}
+
+        identity_files: dict[str, str] = {}
+        parsed_bundle: dict[str, object] = {}
+        for filename in IDENTITY_BUNDLE_FILES:
+            file_path = agent_root / filename
+            if not file_path.exists():
+                continue
+            identity_files[filename] = str(file_path)
+            parsed = safe_read_json(file_path)
+            if parsed is not None:
+                parsed_bundle[filename.replace(".json", "").replace("-", "_")] = parsed
+
+        actual_profile = parsed_bundle.get("actual_profile")
+        actual_profile_dict = actual_profile if isinstance(actual_profile, dict) else {}
+
+        discovered_dirs: dict[str, list[str]] = {"skills": [], "context": []}
+        skill_artifacts: list[dict[str, object]] = []
+        context_artifacts: list[dict[str, object]] = []
+        prompt_artifacts: list[dict[str, object]] = []
+        seen_paths: set[str] = set()
+
+        def add_dir(bucket: str, path: Path) -> None:
+            normalized = str(path)
+            if normalized in discovered_dirs[bucket]:
+                return
+            if len(discovered_dirs[bucket]) >= ARTIFACT_PATH_LIMIT:
+                return
+            discovered_dirs[bucket].append(normalized)
+
+        def add_preview(collection: list[dict[str, object]], path: Path, kind: str) -> None:
+            normalized = str(path)
+            if normalized in seen_paths:
+                return
+            seen_paths.add(normalized)
+            if len(collection) >= ARTIFACT_PREVIEW_LIMIT:
+                return
+            collection.append(self.build_artifact_preview(path, kind, agent_root))
+
+        roots_to_scan = [agent_root, agent_root / "source"]
+        for scan_root in roots_to_scan:
+            if not scan_root.exists() or not scan_root.is_dir():
+                continue
+            base_depth = len(scan_root.parts)
+            for current_root, dirs, files in os.walk(scan_root):
+                current_path = Path(current_root)
+                depth = len(current_path.parts) - base_depth
+                if depth > ARTIFACT_SCAN_MAX_DEPTH:
+                    dirs[:] = []
+                    continue
+                filtered_dirs = []
+                for dir_name in dirs:
+                    dir_path = current_path / dir_name
+                    lowered = dir_name.lower()
+                    composite = relative_to_root(dir_path, agent_root).lower()
+                    if lowered in SKIP_DIRS:
+                        continue
+                    if lowered in SKILL_DIR_NAMES or composite.endswith("/skills"):
+                        add_dir("skills", dir_path)
+                    if lowered in CONTEXT_DIR_NAMES:
+                        add_dir("context", dir_path)
+                    filtered_dirs.append(dir_name)
+                dirs[:] = filtered_dirs
+
+                for filename in files:
+                    file_path = current_path / filename
+                    lowered_name = filename.lower()
+                    if lowered_name == "skill.md" or "/skills/" in str(file_path).lower():
+                        add_preview(skill_artifacts, file_path, "skill_artifact")
+                    elif looks_like_context_artifact(file_path):
+                        add_preview(context_artifacts, file_path, "context_artifact")
+                    if lowered_name == "prompts.json" or "prompt" in lowered_name:
+                        add_preview(prompt_artifacts, file_path, "prompt_artifact")
+
+        resolved_profile_sources: list[dict[str, object]] = []
+        unresolved_profile_sources: list[str] = []
+        for skill in actual_profile_dict.get("skills", []) if isinstance(actual_profile_dict.get("skills"), list) else []:
+            if not isinstance(skill, dict):
+                continue
+            for source_value in skill.get("sources", []) if isinstance(skill.get("sources"), list) else []:
+                source_text = str(source_value).strip()
+                if not source_text:
+                    continue
+                resolved = resolve_profile_source_path(agent_root, source_text)
+                entry: dict[str, object] = {"source": source_text}
+                if resolved is None:
+                    unresolved_profile_sources.append(source_text)
+                else:
+                    entry["resolved_path"] = str(resolved)
+                    if resolved.is_dir():
+                        if resolved.name.lower() in SKILL_DIR_NAMES or "skills" in resolved.name.lower():
+                            add_dir("skills", resolved)
+                        if resolved.name.lower() in CONTEXT_DIR_NAMES or "context" in resolved.name.lower():
+                            add_dir("context", resolved)
+                    else:
+                        if looks_like_skill_artifact(resolved):
+                            add_preview(skill_artifacts, resolved, "actual_profile_source")
+                        else:
+                            add_preview(context_artifacts, resolved, "actual_profile_source")
+                resolved_profile_sources.append(entry)
+
+        identity = {
+            "agent_root_path": str(agent_root),
+            "identity_files": identity_files,
+            "actual_agent_profile": actual_profile_dict,
+            "authorized_agent_profile": parsed_bundle.get("authorized_profile", {}),
+            "functional_agent_profile": parsed_bundle.get("functional_profile", {}),
+            "machine_identity": parsed_bundle.get("identity", {}),
+            "governance_profile": parsed_bundle.get("governance", {}),
+            "manifest_profile": parsed_bundle.get("manifest", {}),
+            "prompt_index": parsed_bundle.get("prompts", {}),
+            "skills_index": parsed_bundle.get("skills", {}),
+            "skill_directory_paths": discovered_dirs["skills"],
+            "context_directory_paths": discovered_dirs["context"],
+            "resolved_profile_sources": resolved_profile_sources,
+            "unresolved_profile_sources": normalize_string_list(unresolved_profile_sources),
+            "skill_artifacts": skill_artifacts,
+            "context_artifacts": context_artifacts,
+            "prompt_artifacts": prompt_artifacts,
+        }
+        return identity
+
+    def assess_high_risk(
+        self,
+        detection: Detection,
+        classification_text: str = "",
+        regulatory_context: dict[str, object] | None = None,
+    ) -> tuple[dict[str, object], dict[str, object]]:
+        context = dict(regulatory_context or {})
+        context_text_parts = [
+            detection.title,
+            detection.detail,
+            detection.path,
+            detection.source,
+            detection.provider_name,
+            detection.operator_name,
+            detection.model_name,
+            detection.model_version,
+            " ".join(detection.evidence),
+            json.dumps(detection.air_payload, sort_keys=True, ensure_ascii=True),
+            first_non_empty(context.get("intended_purpose")),
+            first_non_empty(context.get("use_case_category")),
+            first_non_empty(context.get("annex_iii_category")),
+            first_non_empty(context.get("decision_impact")),
+            classification_text[:200000],
+        ]
+        combined_text = "\n".join(part for part in context_text_parts if part).lower()
+
+        annex_i_matches: list[dict[str, object]] = []
+        for rule in ANNEX_I_SECTOR_RULES:
+            hits = collect_pattern_hits(combined_text, rule["patterns"])
+            if hits:
+                annex_i_matches.append(
+                    {
+                        "id": rule["id"],
+                        "label": rule["label"],
+                        "matched_patterns": hits,
+                    }
+                )
+        annex_i_safety_hits = collect_pattern_hits(combined_text, ANNEX_I_SAFETY_PATTERNS)
+        annex_i_candidate = bool(annex_i_matches and annex_i_safety_hits)
+
+        annex_iii_matches: list[dict[str, object]] = []
+        for rule in ANNEX_III_RULES:
+            hits = collect_pattern_hits(combined_text, rule["patterns"])
+            if hits:
+                annex_iii_matches.append(
+                    {
+                        "point": rule["point"],
+                        "area": rule["area"],
+                        "label": rule["label"],
+                        "matched_patterns": hits,
+                    }
+                )
+
+        explicit_annex_iii = first_non_empty(context.get("annex_iii_category"))
+        if explicit_annex_iii and not any(item["point"] == explicit_annex_iii for item in annex_iii_matches):
+            annex_iii_matches.insert(
+                0,
+                {
+                    "point": explicit_annex_iii,
+                    "area": first_non_empty(context.get("use_case_category"), "annex_iii"),
+                    "label": explicit_annex_iii,
+                    "matched_patterns": [f"structured:annex_iii_category={explicit_annex_iii}"],
+                },
+            )
+
+        public_authority_use = bool(context.get("public_authority_use")) or bool(
+            collect_pattern_hits(combined_text, PUBLIC_AUTHORITY_PATTERNS)
+        )
+        profiling_indicator = "profile" in combined_text or bool(collect_pattern_hits(combined_text, PROFILING_PATTERNS))
+        material_decision_hits = collect_pattern_hits(combined_text, MATERIAL_DECISION_PATTERNS)
+        procedural_hits = collect_pattern_hits(combined_text, FILTER_PROCEDURAL_PATTERNS)
+        preparatory_hits = collect_pattern_hits(combined_text, FILTER_PREPARATORY_PATTERNS)
+        improvement_hits = collect_pattern_hits(combined_text, FILTER_IMPROVEMENT_PATTERNS)
+        pattern_review_hits = collect_pattern_hits(combined_text, FILTER_PATTERN_REVIEW_PATTERNS)
+        agentic_hits = collect_pattern_hits(combined_text, AGENTIC_SYSTEM_PATTERNS)
+        gpai_text = " ".join(
+            [
+                detection.provider_name.lower(),
+                detection.model_name.lower(),
+                detection.model_version.lower(),
+                combined_text,
+            ]
+        )
+        uses_gpai = bool(collect_pattern_hits(gpai_text, GPAI_PATTERNS))
+
+        filter_reasons: list[str] = []
+        if procedural_hits:
+            filter_reasons.append("narrow_procedural_task")
+        if preparatory_hits:
+            filter_reasons.append("preparatory_task")
+        if improvement_hits:
+            filter_reasons.append("improves_previously_completed_human_activity")
+        if pattern_review_hits:
+            filter_reasons.append("decision_pattern_review")
+        filter_reasons = normalize_string_list(filter_reasons)
+
+        explicit_high_risk = bool(context.get("high_risk_candidate"))
+        annex_iii_candidate = bool(annex_iii_matches)
+        high_risk_candidate = explicit_high_risk or annex_i_candidate or annex_iii_candidate
+
+        decision_impact = first_non_empty(context.get("decision_impact"))
+        if not decision_impact:
+            if material_decision_hits:
+                decision_impact = "material"
+            elif filter_reasons:
+                decision_impact = "supportive_or_procedural"
+            else:
+                decision_impact = "unknown"
+
+        filter_candidate = annex_iii_candidate and bool(filter_reasons)
+        filter_blockers = []
+        if profiling_indicator:
+            filter_blockers.append("profiling_indicator")
+        if agentic_hits:
+            filter_blockers.append("agentic_or_composite_system")
+        filter_review_required = filter_candidate or bool(filter_blockers)
+
+        classification_basis = []
+        if explicit_high_risk:
+            classification_basis.append("structured high-risk candidate metadata")
+        if annex_i_candidate:
+            classification_basis.append("Article 6(1) / Annex I")
+        elif annex_i_matches:
+            classification_basis.append("Annex I sector signal")
+        if annex_iii_candidate:
+            classification_basis.append("Article 6(2) / Annex III")
+        if filter_review_required and annex_iii_candidate:
+            classification_basis.append("Article 6(3) review required")
+
+        provisional_outcome = "no_high_risk_signal"
+        if annex_i_candidate:
+            provisional_outcome = "annex_i_candidate"
+        elif annex_iii_candidate and filter_review_required:
+            provisional_outcome = "annex_iii_candidate_filter_review_required"
+        elif annex_iii_candidate:
+            provisional_outcome = "annex_iii_candidate"
+        elif explicit_high_risk:
+            provisional_outcome = "explicit_high_risk_candidate"
+
+        annex_iii_category = ""
+        if annex_iii_matches:
+            first_match = annex_iii_matches[0]
+            annex_iii_category = f"{first_match['point']} {first_match['label']}"
+
+        confidence_components = []
+        if explicit_high_risk:
+            confidence_components.append(0.25)
+        if annex_i_candidate:
+            confidence_components.append(0.35)
+        elif annex_i_matches:
+            confidence_components.append(0.15)
+        if annex_iii_candidate:
+            confidence_components.append(0.35)
+        if material_decision_hits:
+            confidence_components.append(0.15)
+        if filter_reasons:
+            confidence_components.append(-0.05)
+        assessment_confidence = max(0.0, min(1.0, detection.confidence_score * 0.5 + sum(confidence_components)))
+
+        evidence = normalize_string_list(
+            [
+                *[f"annex_i:{match['id']}" for match in annex_i_matches],
+                *[f"annex_i_safety:{item}" for item in annex_i_safety_hits],
+                *[f"annex_iii:{match['point']}" for match in annex_iii_matches],
+                *[f"filter:{item}" for item in filter_reasons],
+                *[f"filter_blocker:{item}" for item in filter_blockers],
+                *[f"material:{item}" for item in material_decision_hits],
+            ]
+        )
+
+        summary_parts = []
+        if annex_i_candidate:
+            summary_parts.append("candidate high-risk AI system under Article 6(1) / Annex I")
+        elif annex_iii_candidate:
+            summary_parts.append("candidate high-risk AI system under Article 6(2) / Annex III")
+        elif annex_i_matches:
+            summary_parts.append("Annex I regulated-product signals detected")
+        else:
+            summary_parts.append("no clear high-risk classification signal detected")
+        if filter_candidate:
+            summary_parts.append("Article 6(3) filter signals detected, but final exemption requires review")
+        if filter_blockers:
+            summary_parts.append("filter should be reviewed narrowly because profiling or agentic/composite indicators were found")
+        rationale = ". ".join(summary_parts).strip().rstrip(".") + "."
+
+        high_risk_assessment = {
+            "guideline_source_url": HIGH_RISK_GUIDELINES_URL,
+            "guideline_publication_date": HIGH_RISK_GUIDELINES_PUBLICATION_DATE,
+            "provisional_outcome": provisional_outcome,
+            "high_risk_candidate": high_risk_candidate,
+            "classification_basis": classification_basis,
+            "annex_i_candidate": annex_i_candidate,
+            "annex_i_sectors": annex_i_matches,
+            "annex_iii_candidate": annex_iii_candidate,
+            "annex_iii_matches": annex_iii_matches,
+            "public_authority_use": public_authority_use,
+            "profiling_indicator": profiling_indicator,
+            "decision_impact": decision_impact,
+            "article_6_3_filter_candidate": filter_candidate,
+            "article_6_3_filter_reasons": filter_reasons,
+            "article_6_3_filter_blockers": filter_blockers,
+            "uses_gpai": uses_gpai,
+            "review_required": high_risk_candidate or filter_review_required,
+            "assessment_confidence": round(assessment_confidence, 3),
+            "evidence": evidence,
+            "rationale": rationale,
+        }
+
+        requires_dpia = profiling_indicator or any(
+            normalize_point_slug(match["point"]).startswith(prefix)
+            for match in annex_iii_matches
+            for prefix in ("1", "5_b", "5_c", "6", "7")
+        )
+        applicability_hint = {
+            "status": "draft_candidate" if high_risk_candidate else "not_indicated",
+            "intended_purpose": first_non_empty(
+                context.get("intended_purpose"),
+                annex_iii_category,
+                rationale,
+            ),
+            "value_chain_role": self.infer_value_chain_role(detection),
+            "use_case_category": "annex_i" if annex_i_candidate else ("annex_iii" if annex_iii_candidate else ""),
+            "annex_iii_category": annex_iii_category,
+            "decision_impact": decision_impact,
+            "public_authority_use": public_authority_use,
+            "high_risk_candidate": high_risk_candidate,
+            "requires_human_oversight": bool(
+                context.get("requires_human_oversight") or high_risk_candidate
+            ),
+            "prohibited_practice_screened": False,
+            "requires_eu_database_registration": bool(high_risk_candidate and annex_iii_candidate),
+            "requires_fria": bool(high_risk_candidate and public_authority_use),
+            "requires_dpia": requires_dpia,
+            "uses_gpai": uses_gpai,
+            "decision_summary": rationale,
+            "notes": (
+                "Draft detector-side applicability hint based on the Commission draft "
+                "high-risk classification guidelines; confirm centrally in Registack AIR."
+            ),
+        }
+        return high_risk_assessment, applicability_hint
 
     def add_detection(
         self,
@@ -839,6 +1833,8 @@ class Detector:
         evidence: Iterable[str] | None = None,
         air_payload: dict | None = None,
         metadata: ParsedMetadata | None = None,
+        classification_text: str = "",
+        regulatory_context: dict[str, object] | None = None,
     ) -> None:
         normalized_metadata = metadata or ParsedMetadata()
         payload = dict(air_payload or {})
@@ -874,6 +1870,14 @@ class Detector:
             air_payload=payload,
         )
         detection.air_record_type = record_type_for_detection(detection.detection_type)
+        high_risk_assessment, applicability_hint = self.assess_high_risk(
+            detection,
+            classification_text=classification_text,
+            regulatory_context=regulatory_context,
+        )
+        detection.high_risk_assessment = high_risk_assessment
+        detection.applicability_hint = applicability_hint
+        detection.agent_identity = self.collect_agent_identity(path)
         detection.air_candidate = build_air_candidate(detection)
         self.detections.append(detection)
         self.seen_detection_keys.add(detection_key)
@@ -900,6 +1904,10 @@ class Detector:
         if not isinstance(review_records, dict):
             review_records = {}
         updated: dict[str, dict] = {}
+        self.high_risk_candidate_count = 0
+        self.annex_i_candidate_count = 0
+        self.annex_iii_candidate_count = 0
+        self.article_6_3_review_count = 0
         for signature, item in known.items():
             if not isinstance(item, dict):
                 continue
@@ -948,6 +1956,15 @@ class Detector:
             )
             detection.air_record_type = record_type_for_detection(detection.detection_type)
             detection.air_candidate = build_air_candidate(detection)
+            assessment = detection.high_risk_assessment if isinstance(detection.high_risk_assessment, dict) else {}
+            if bool(assessment.get("high_risk_candidate")):
+                self.high_risk_candidate_count += 1
+            if bool(assessment.get("annex_i_candidate")):
+                self.annex_i_candidate_count += 1
+            if bool(assessment.get("annex_iii_candidate")):
+                self.annex_iii_candidate_count += 1
+            if bool(assessment.get("article_6_3_filter_candidate")):
+                self.article_6_3_review_count += 1
             updated[signature] = {
                 "detection_type": detection.detection_type,
                 "path": detection.path,
@@ -1255,6 +2272,7 @@ class Detector:
         sample = ""
         lowered_text = ""
         parsed_metadata = ParsedMetadata()
+        structured_regulatory_context: dict[str, object] = {}
         if should_read_text:
             try:
                 sample = path.read_text(encoding="utf-8", errors="ignore")
@@ -1263,6 +2281,7 @@ class Detector:
             lowered_text = sample.lower()
             if sample:
                 parsed_metadata = self._metadata_for_file(path, sample)
+                structured_regulatory_context = extract_structured_regulatory_context(path, sample)
 
         if lowered_name in REGISTACK_MARKER_FILES:
             self.add_detection(
@@ -1279,6 +2298,8 @@ class Detector:
                     "marker_file": lowered_name,
                 },
                 metadata=parsed_metadata,
+                classification_text=sample,
+                regulatory_context=structured_regulatory_context,
             )
 
         if lowered_name in AGENT_CONFIG_FILES:
@@ -1296,6 +2317,8 @@ class Detector:
                     "config_file": lowered_name,
                 },
                 metadata=parsed_metadata,
+                classification_text=sample,
+                regulatory_context=structured_regulatory_context,
             )
 
         if lowered_name in RUNTIME_ARTIFACT_NAMES:
@@ -1310,6 +2333,8 @@ class Detector:
                 evidence=[lowered_name, *parsed_metadata.evidence],
                 air_payload={"candidate_kind": "runtime-artifact"},
                 metadata=parsed_metadata,
+                classification_text=sample,
+                regulatory_context=structured_regulatory_context,
             )
 
         if suffix in MODEL_EXTENSIONS:
@@ -1325,6 +2350,8 @@ class Detector:
                 evidence=[suffix],
                 air_payload={"candidate_kind": "model-artifact"},
                 metadata=parsed_metadata,
+                classification_text=sample,
+                regulatory_context=structured_regulatory_context,
             )
 
         if not should_read_text:
@@ -1386,6 +2413,7 @@ class Detector:
                 "frameworks": unique_hits,
             },
             metadata=combined_metadata,
+            classification_text=lowered_text,
         )
 
     def _detect_registack_yaml(self, path: Path, lowered_text: str, parsed_metadata: ParsedMetadata) -> None:
@@ -1415,6 +2443,8 @@ class Detector:
                     "marker_file": ".registack.yaml",
                 },
                 metadata=parsed_metadata,
+                classification_text=lowered_text,
+                regulatory_context=extract_structured_regulatory_context(path, lowered_text),
             )
 
     def _detect_kubernetes_manifest(self, path: Path, lowered_text: str, sample: str) -> None:
@@ -1456,6 +2486,8 @@ class Detector:
                 "images": matching_images[:5],
             },
             metadata=combined_metadata,
+            classification_text=sample,
+            regulatory_context=extract_structured_regulatory_context(path, sample),
         )
 
     def scan_local_endpoints(self) -> None:
@@ -1499,6 +2531,7 @@ class Detector:
                         metadata_status=METADATA_STATUS_INFERRED if infer_provider_name(label) else METADATA_STATUS_DETECTED,
                         evidence=[f"local_endpoint:{port}"] if infer_provider_name(label) else [],
                     ),
+                    classification_text=" ".join([label, detail, *evidence]),
                 )
             finally:
                 open_socket.close()
@@ -1544,6 +2577,9 @@ class Detector:
                             "image_labels": labels,
                         },
                         metadata=combined_metadata,
+                        classification_text="\n".join(
+                            [image_name, container.name, json.dumps(labels, sort_keys=True, ensure_ascii=True)]
+                        ),
                     )
                 return
             except Exception as exc:
@@ -1593,6 +2629,7 @@ class Detector:
                     "image": image_name,
                 },
                 metadata=inferred_metadata,
+                classification_text=" ".join([container_id, image_name, name]),
             )
 
     def scan_kubernetes_manifests_only(self, scan_dirs: list[str], deep: bool) -> None:
@@ -1626,6 +2663,10 @@ class Detector:
                     "scan_paths": self.paths_scanned,
                     "detection_count": len(self.detections),
                     "new_detection_count": self.new_detection_count,
+                    "high_risk_candidate_count": self.high_risk_candidate_count,
+                    "annex_i_candidate_count": self.annex_i_candidate_count,
+                    "annex_iii_candidate_count": self.annex_iii_candidate_count,
+                    "article_6_3_review_count": self.article_6_3_review_count,
                     "warnings": self.warnings,
                 },
             },
@@ -1639,6 +2680,7 @@ class Detector:
             f"scanner_version: {VERSION}",
             f"detections: {len(self.detections)}",
             f"new_detections: {self.new_detection_count}",
+            f"high_risk_candidates: {self.high_risk_candidate_count}",
         ]
         if self.paths_scanned:
             lines.append("scan_paths:")
@@ -1683,6 +2725,44 @@ class Detector:
             lines.append(f"   air_record_type: {detection.air_record_type}")
             if detection.air_candidate:
                 lines.append(f"   air_import_ready: {bool(detection.air_candidate.get('import_ready', True))}")
+            if detection.high_risk_assessment:
+                assessment = detection.high_risk_assessment
+                lines.append(f"   high_risk_candidate: {bool(assessment.get('high_risk_candidate'))}")
+                lines.append(f"   high_risk_outcome: {first_non_empty(assessment.get('provisional_outcome'), '-')}")
+                annex_i_labels = [
+                    str(item.get("label"))
+                    for item in assessment.get("annex_i_sectors", [])
+                    if isinstance(item, dict) and first_non_empty(item.get("label"))
+                ]
+                annex_iii_labels = [
+                    f"{item.get('point')} {item.get('label')}".strip()
+                    for item in assessment.get("annex_iii_matches", [])
+                    if isinstance(item, dict)
+                ]
+                if annex_i_labels:
+                    lines.append(f"   annex_i_signals: {', '.join(annex_i_labels)}")
+                if annex_iii_labels:
+                    lines.append(f"   annex_iii_signals: {', '.join(annex_iii_labels)}")
+                if assessment.get("article_6_3_filter_candidate"):
+                    lines.append("   article_6_3_review: possible filter candidate")
+            if detection.agent_identity:
+                actual_profile = detection.agent_identity.get("actual_agent_profile", {})
+                skill_dirs = detection.agent_identity.get("skill_directory_paths", [])
+                context_dirs = detection.agent_identity.get("context_directory_paths", [])
+                skill_artifacts = detection.agent_identity.get("skill_artifacts", [])
+                context_artifacts = detection.agent_identity.get("context_artifacts", [])
+                lines.append(f"   agent_root_path: {first_non_empty(detection.agent_identity.get('agent_root_path'), '-')}")
+                if isinstance(actual_profile, dict) and actual_profile:
+                    lines.append(
+                        f"   actual_profile: agent_id={first_non_empty(actual_profile.get('agent_id'), '-')}, "
+                        f"profile_hash={first_non_empty(actual_profile.get('profile_hash'), '-')}"
+                    )
+                lines.append(
+                    f"   skill_paths: {len(skill_dirs)} dirs, {len(skill_artifacts)} file previews"
+                )
+                lines.append(
+                    f"   context_paths: {len(context_dirs)} dirs, {len(context_artifacts)} file previews"
+                )
             if detection.provider_name:
                 lines.append(f"   provider_name: {detection.provider_name}")
             if detection.operator_name:
@@ -1703,6 +2783,7 @@ class Detector:
             f"scanner_version: {VERSION}",
             f"detections: {len(self.detections)}",
             f"new_detections: {self.new_detection_count}",
+            f"high_risk_candidates: {self.high_risk_candidate_count}",
         ]
         reviewed = [item for item in self.detections if item.review_state == REVIEW_STATE_REVIEWED]
         pending = [item for item in self.detections if item.review_state != REVIEW_STATE_REVIEWED]
@@ -1750,6 +2831,36 @@ class Detector:
                     f"     metadata/confidence/criticality: {detection.metadata_status} / "
                     f"{detection.air_candidate.get('confidence', '-')} / {detection.operational_criticality}"
                 )
+                if detection.high_risk_assessment:
+                    assessment = detection.high_risk_assessment
+                    labels = [
+                        f"{item.get('point')} {item.get('label')}".strip()
+                        for item in assessment.get("annex_iii_matches", [])
+                        if isinstance(item, dict)
+                    ]
+                    lines.append(
+                        f"     high_risk: {assessment.get('provisional_outcome', '-')} "
+                        f"(candidate={bool(assessment.get('high_risk_candidate'))})"
+                    )
+                    if labels:
+                        lines.append(f"     annex_iii: {', '.join(labels)}")
+                    if assessment.get("article_6_3_filter_candidate"):
+                        lines.append("     article_6_3_review: possible filter candidate")
+                if detection.agent_identity:
+                    actual_profile = detection.agent_identity.get("actual_agent_profile", {})
+                    lines.append(
+                        f"     agent_root: {first_non_empty(detection.agent_identity.get('agent_root_path'), '-')}"
+                    )
+                    if isinstance(actual_profile, dict) and actual_profile:
+                        lines.append(
+                            f"     actual_profile: {first_non_empty(actual_profile.get('agent_id'), '-')} / "
+                            f"{first_non_empty(actual_profile.get('profile_hash'), '-')}"
+                        )
+                    lines.append(
+                        f"     skill/context artifacts: "
+                        f"{len(detection.agent_identity.get('skill_artifacts', []))} / "
+                        f"{len(detection.agent_identity.get('context_artifacts', []))}"
+                    )
                 lines.append(f"     import_ready: {import_ready}")
                 warnings = detection.air_candidate.get("validation_warnings", [])
                 if isinstance(warnings, list) and warnings:

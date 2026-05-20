@@ -12,6 +12,9 @@ $cmdPath = Join-Path $InstallDir "registack-agent-detector.cmd"
 $importPyPath = Join-Path $InstallDir "registack-air-import.py"
 $importPs1Path = Join-Path $InstallDir "registack-air-import.ps1"
 $importCmdPath = Join-Path $InstallDir "registack-air-import.cmd"
+$linkPyPath = Join-Path $InstallDir "registack-air-link.py"
+$linkPs1Path = Join-Path $InstallDir "registack-air-link.ps1"
+$linkCmdPath = Join-Path $InstallDir "registack-air-link.cmd"
 $pointerPath = Join-Path $InstallDir ".registack-agent-detector-config"
 
 if (Test-Path -LiteralPath $pointerPath) {
@@ -21,7 +24,7 @@ if (Test-Path -LiteralPath $pointerPath) {
     }
 }
 
-foreach ($target in @($pyPath, $ps1Path, $cmdPath, $importPyPath, $importPs1Path, $importCmdPath, $pointerPath)) {
+foreach ($target in @($pyPath, $ps1Path, $cmdPath, $importPyPath, $importPs1Path, $importCmdPath, $linkPyPath, $linkPs1Path, $linkCmdPath, $pointerPath)) {
     if (Test-Path -LiteralPath $target) {
         Remove-Item -Force -LiteralPath $target
     }

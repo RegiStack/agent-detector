@@ -147,12 +147,17 @@ $cmdPath = Join-Path $InstallDir "registack-agent-detector.cmd"
 $importPyPath = Join-Path $InstallDir "registack-air-import.py"
 $importPs1Path = Join-Path $InstallDir "registack-air-import.ps1"
 $importCmdPath = Join-Path $InstallDir "registack-air-import.cmd"
+$linkPyPath = Join-Path $InstallDir "registack-air-link.py"
+$linkPs1Path = Join-Path $InstallDir "registack-air-link.ps1"
+$linkCmdPath = Join-Path $InstallDir "registack-air-link.cmd"
 $pointerPath = Join-Path $InstallDir ".registack-agent-detector-config"
 
 Fetch-Artifact -Base $BaseUrl -ArtifactName "registack-agent-detector.py" -DestinationPath $pyPath
 Fetch-Artifact -Base $BaseUrl -ArtifactName "registack-agent-detector.ps1" -DestinationPath $ps1Path
 Fetch-Artifact -Base $BaseUrl -ArtifactName "registack-air-import.py" -DestinationPath $importPyPath
 Fetch-Artifact -Base $BaseUrl -ArtifactName "registack-air-import.ps1" -DestinationPath $importPs1Path
+Fetch-Artifact -Base $BaseUrl -ArtifactName "registack-air-link.py" -DestinationPath $linkPyPath
+Fetch-Artifact -Base $BaseUrl -ArtifactName "registack-air-link.ps1" -DestinationPath $linkPs1Path
 
 $cmdBody = '@echo off' + "`r`n" +
     'powershell -ExecutionPolicy Bypass -File "%~dp0registack-agent-detector.ps1" %*'
@@ -161,6 +166,10 @@ Set-Content -Path $cmdPath -Value $cmdBody -Encoding ASCII
 $importCmdBody = '@echo off' + "`r`n" +
     'powershell -ExecutionPolicy Bypass -File "%~dp0registack-air-import.ps1" %*'
 Set-Content -Path $importCmdPath -Value $importCmdBody -Encoding ASCII
+
+$linkCmdBody = '@echo off' + "`r`n" +
+    'powershell -ExecutionPolicy Bypass -File "%~dp0registack-air-link.ps1" %*'
+Set-Content -Path $linkCmdPath -Value $linkCmdBody -Encoding ASCII
 
 $configObject = @{
     scan_profile = "persistent_selected_path"
@@ -179,11 +188,14 @@ if (-not ($pathEntries | Where-Object { $_ -eq $InstallDir })) {
 
 & $cmdPath --version | Out-Null
 & $importCmdPath --version | Out-Null
+& $linkCmdPath --version | Out-Null
 
 Write-Host "Registack AIR Agent Detector installed successfully at $InstallDir"
 Write-Host "Registack AIR Importer installed successfully at $InstallDir"
+Write-Host "Registack AIR Link installed successfully at $InstallDir"
 Write-Host "Primary detection path: $selectedScanDir"
 Write-Host "Default scan profile: persistent selected path"
 Write-Host "Config: $ConfigPath"
 Write-Host "Verify with: registack-agent-detector.cmd --version"
 Write-Host "Importer verify: registack-air-import.cmd --version"
+Write-Host "AIR link verify: registack-air-link.cmd --version"

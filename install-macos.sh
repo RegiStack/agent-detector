@@ -9,9 +9,11 @@ CONFIG_PATH="${REGISTACK_AGENT_DETECTOR_CONFIG:-$CONFIG_DIR/config.json}"
 SCAN_CHOICE="${REGISTACK_AGENT_DETECTOR_SCAN_CHOICE:-}"
 BIN_NAME="registack-agent-detector"
 IMPORTER_NAME="registack-air-import"
+LINK_NAME="registack-air-link"
 POINTER_NAME=".registack-agent-detector-config"
 TMP_FILE="$(mktemp)"
 TMP_IMPORTER_FILE="$(mktemp)"
+TMP_LINK_FILE="$(mktemp)"
 PROMPT_FOR_SCAN_DIR=true
 SELECTED_SCAN_DIR=""
 PICKER_LABEL="Choose folder in Finder..."
@@ -20,6 +22,7 @@ declare -a CANDIDATE_PATHS
 cleanup() {
   rm -f "$TMP_FILE"
   rm -f "$TMP_IMPORTER_FILE"
+  rm -f "$TMP_LINK_FILE"
 }
 trap cleanup EXIT
 
@@ -241,15 +244,18 @@ PY
 
 fetch_artifact "registack-agent-detector.py" "$TMP_FILE"
 fetch_artifact "registack-air-import.py" "$TMP_IMPORTER_FILE"
+fetch_artifact "registack-air-link.py" "$TMP_LINK_FILE"
 
 if mkdir -p "$TARGET_DIR" 2>/dev/null \
   && install -m 0755 "$TMP_FILE" "${TARGET_DIR}/${BIN_NAME}" 2>/dev/null \
-  && install -m 0755 "$TMP_IMPORTER_FILE" "${TARGET_DIR}/${IMPORTER_NAME}" 2>/dev/null; then
+  && install -m 0755 "$TMP_IMPORTER_FILE" "${TARGET_DIR}/${IMPORTER_NAME}" 2>/dev/null \
+  && install -m 0755 "$TMP_LINK_FILE" "${TARGET_DIR}/${LINK_NAME}" 2>/dev/null; then
   :
 else
   sudo mkdir -p "$TARGET_DIR"
   sudo install -m 0755 "$TMP_FILE" "${TARGET_DIR}/${BIN_NAME}"
   sudo install -m 0755 "$TMP_IMPORTER_FILE" "${TARGET_DIR}/${IMPORTER_NAME}"
+  sudo install -m 0755 "$TMP_LINK_FILE" "${TARGET_DIR}/${LINK_NAME}"
 fi
 
 mkdir -p "$(dirname "$CONFIG_PATH")"
@@ -258,11 +264,14 @@ write_pointer_file
 
 "${TARGET_DIR}/${BIN_NAME}" --version >/dev/null
 "${TARGET_DIR}/${IMPORTER_NAME}" --version >/dev/null
+"${TARGET_DIR}/${LINK_NAME}" --version >/dev/null
 
 echo "Registack AIR Agent Detector installed successfully at ${TARGET_DIR}/${BIN_NAME}"
 echo "Registack AIR Importer installed successfully at ${TARGET_DIR}/${IMPORTER_NAME}"
+echo "Registack AIR Link installed successfully at ${TARGET_DIR}/${LINK_NAME}"
 echo "Primary detection path: ${SELECTED_SCAN_DIR}"
 echo "Default scan profile: persistent selected path"
 echo "Config: ${CONFIG_PATH}"
 echo "Verify with: ${BIN_NAME} --version"
 echo "Importer verify: ${IMPORTER_NAME} --version"
+echo "AIR link verify: ${LINK_NAME} --version"

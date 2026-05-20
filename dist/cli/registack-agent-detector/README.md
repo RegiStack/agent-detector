@@ -35,6 +35,7 @@ This repository is intended to support:
 - security review
 - controlled CLI installation from `registack.eu`
 - free client-side detection and local review prior to central AIR intake
+- local tenant and managed-device binding into the AIR control plane
 
 It is not positioned as:
 - a full AIR platform repository
@@ -70,8 +71,10 @@ The published web directory should contain:
 - all install and uninstall scripts
 - the Python detector
 - the Python AIR importer
+- the Python AIR link client
 - the PowerShell wrapper
 - the PowerShell AIR importer wrapper
+- the PowerShell AIR link wrapper
 - this `README.md`
 
 ## Assemble Publish Tree
@@ -93,6 +96,51 @@ You can then sync that directory to the web host path for:
 ```text
 https://www.registack.eu/cli/registack-agent-detector/
 ```
+
+## Lovable Sync Automation
+
+If `registack.eu` is served from a Lovable project, automate the file sync into
+the Lovable `public` tree locally and then use Lovable only for the final
+`Publish/Update` action.
+
+1. Copy the example config:
+
+```bash
+cp .lovable-publish.env.example .lovable-publish.env
+```
+
+2. Set exactly one target in `.lovable-publish.env`, typically:
+
+```bash
+LOVABLE_PROJECT_ROOT="/absolute/path/to/your/lovable-project"
+```
+
+3. Run the sync:
+
+```bash
+bash publish-lovable.sh
+```
+
+The script will:
+- rebuild `dist/cli/registack-agent-detector`
+- sync it into `public/cli/registack-agent-detector`
+- validate that all required files exist in the Lovable target
+
+One-off without a config file:
+
+```bash
+bash publish-lovable.sh --lovable-root "/absolute/path/to/your/lovable-project"
+```
+
+Or dry-run the resolved target first:
+
+```bash
+bash publish-lovable.sh --lovable-root "/absolute/path/to/your/lovable-project" --dry-run
+```
+
+This is the maximum safe automation available here. The actual Lovable
+`Publish/Update` click still happens in Lovable unless you have a separate
+Lovable API or repo-integrated deploy path.
 
 ## Install
 
@@ -168,6 +216,12 @@ The installer also places the thin AIR importer on the path:
 registack-air-import --version
 ```
 
+The installer also places the AIR tenant/device link client on the path:
+
+```bash
+registack-air-link --version
+```
+
 ### Windows
 
 ```powershell
@@ -183,6 +237,70 @@ Review the local detected list in CLI:
 
 ```bash
 registack-agent-detector --scan-default --review
+```
+
+Run the AIR importer in local review mode before any control-plane intake:
+
+```bash
+registack-agent-detector --scan-default --output json | registack-air-import --review --dry-run
+```
+
+The importer review now includes:
+- `high_risk_assessment` and `applicability_hint` from the detector-side EU AI Act classification pass
+- the parsed `actual_agent_profile`
+- the detected `agent_identity.agent_root_path`
+- resolved profile sources
+- counts and path samples for skill, context, and prompt artifacts
+- the same control-plane boundary used later in AIR detection intake
+
+## AIR Tenant Registration And Binding
+
+The AIR control plane already exposes customer, tenant, and managed-device
+APIs. The local detector package now includes `registack-air-link` so the
+client can register a tenant, bind itself to that tenant, and register the
+local machine as a managed device.
+
+Inspect the current local AIR binding:
+
+```bash
+registack-air-link status
+```
+
+List existing AIR customers:
+
+```bash
+registack-air-link --base-url http://127.0.0.1:8092/admin/installer --token "$REGISTACK_AIR_TOKEN" list-customers
+```
+
+Register a customer when the AIR control plane is still empty:
+
+```bash
+registack-air-link --base-url http://127.0.0.1:8092/admin/installer --token "$REGISTACK_AIR_TOKEN" register-customer --name "Pilot Customer"
+```
+
+Register a tenant under an existing customer and bind the local detector to it:
+
+```bash
+registack-air-link --base-url http://127.0.0.1:8092/admin/installer --token "$REGISTACK_AIR_TOKEN" register-tenant --customer-id customer_000001 --name "Pilot Tenant" --slug pilot-tenant --bind
+```
+
+Bind the detector to an already existing tenant:
+
+```bash
+registack-air-link --base-url http://127.0.0.1:8092/admin/installer --token "$REGISTACK_AIR_TOKEN" bind-tenant --tenant-id tenant_000001
+```
+
+Register or reuse the local machine as a managed device for that tenant:
+
+```bash
+registack-air-link --base-url http://127.0.0.1:8092/admin/installer --token "$REGISTACK_AIR_TOKEN" register-device --device-label "Eduard MacBook Air"
+```
+
+After that, the importer can use the saved AIR binding automatically:
+
+```bash
+registack-agent-detector --scan-default --output json | \
+registack-air-import --review --dry-run
 ```
 
 ## Run Examples
@@ -233,7 +351,19 @@ registack-agent-detector --scan-dir . --scan-docker --output json --quiet
 ## AIR Import
 
 The detector JSON now includes an `air_candidate` block per detection. It is
-AIR-shaped and can be imported with the bundled thin importer.
+AIR-shaped and can be imported with the bundled thin importer. It also includes
+`high_risk_assessment` and `applicability_hint` blocks derived from the
+European Commission draft guidelines on the classification of high-risk AI
+systems published on `2026-05-19`:
+
+- [Draft Commission guidelines on the classification of high-risk AI systems](https://digital-strategy.ec.europa.eu/en/library/draft-commission-guidelines-classification-high-risk-ai-systems)
+- local working copies used for this detector build:
+  - `/Users/eduardkim/Downloads/Draft_Guidelines_on_the_classification_on_highrisk_AI_general_principles_UQmTa2BdJ3IH8bIsWJyDqaWOY_128559.pdf`
+  - `/Users/eduardkim/Downloads/Draft_Guidelines_on_the_classification_of_high_risk_AI_Annex_I_E9XHEqRLx555OO6iijKwJF32Cvc_128560.pdf`
+  - `/Users/eduardkim/Downloads/Draft_Guidelines_on_the_classification_of_high_risk_AI_Annex_III_7MXR3YIz2GW3uPpJPWvvNDd8IOI_128561.pdf`
+
+The detector remains conservative: it emits review-oriented candidate labels,
+not a final legal determination.
 
 Review the plan without posting anything:
 
@@ -281,11 +411,15 @@ registack-agent-detector.cmd --scan-default --output json | registack-air-import
   "detections": [],
   "scan_metadata": {
     "timestamp": "2026-05-18T00:00:00+00:00",
-    "scanner_version": "0.1.6",
+    "scanner_version": "0.1.7",
     "output_format": "air-compatible",
     "scan_paths": [],
     "detection_count": 0,
     "new_detection_count": 0,
+    "high_risk_candidate_count": 0,
+    "annex_i_candidate_count": 0,
+    "annex_iii_candidate_count": 0,
+    "article_6_3_review_count": 0,
     "warnings": []
   }
 }
@@ -313,6 +447,50 @@ Detections include:
 - `air_record_type`
 - `air_candidate`
 - `air_payload`
+- `high_risk_assessment`
+- `applicability_hint`
+- `agent_identity`
+
+`high_risk_assessment` contains the detector-side review of:
+- possible `Article 6(1) / Annex I` signals
+- possible `Article 6(2) / Annex III` use-case matches
+- possible `Article 6(3)` filter signals that still require review
+- public-authority, profiling, and GPAI indicators
+
+`applicability_hint` aligns these findings to AIR review fields such as:
+- `use_case_category`
+- `annex_iii_category`
+- `decision_impact`
+- `public_authority_use`
+- `high_risk_candidate`
+- `requires_human_oversight`
+- `requires_eu_database_registration`
+- `requires_fria`
+- `requires_dpia`
+- `uses_gpai`
+
+`agent_identity` adds identity-adjacent local artifacts for detected agents:
+- `agent_root_path`
+- `identity_files`
+- `actual_agent_profile`
+- `authorized_agent_profile`
+- `functional_agent_profile`
+- `machine_identity`
+- `manifest_profile`
+- `prompt_index`
+- `skills_index`
+- `skill_directory_paths`
+- `context_directory_paths`
+- `resolved_profile_sources`
+- `skill_artifacts`
+- `context_artifacts`
+- `prompt_artifacts`
+
+This is intended to expose the local agent’s actual operating profile as part of
+the detector output. In practice, that means the JSON can now show:
+- the parsed `actual-profile.json` content
+- the resolved paths of skill and context source files
+- previews of files such as `SKILL.md`, `README.md`, `manifest.json`, and `prompts.json`
 
 ## Exit Codes
 
@@ -352,6 +530,12 @@ AIR importer directly:
 
 ```bash
 python3 registack-air-import.py --tenant-id tenant_000001 --base-url http://127.0.0.1:8092/admin/installer --dry-run --input detector-output.json
+```
+
+AIR tenant/device link client directly:
+
+```bash
+python3 registack-air-link.py status
 ```
 
 PowerShell wrapper:
