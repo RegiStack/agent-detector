@@ -239,6 +239,30 @@ Review the local detected list in CLI:
 registack-agent-detector --scan-default --review
 ```
 
+Save a detector scan directly as a JSON file:
+
+```bash
+registack-agent-detector --scan-default --json-file ./detected-agents.json
+```
+
+Or open the native file picker and choose the save path interactively:
+
+```bash
+registack-agent-detector --scan-default --json-file
+```
+
+Or keep the normal output selection and write that result to a file:
+
+```bash
+registack-agent-detector --scan-default --output json --output-file ./detected-agents.json
+```
+
+The same interactive save-path selection also works for the generic file export:
+
+```bash
+registack-agent-detector --scan-default --output json --output-file
+```
+
 Run the AIR importer in local review mode before any control-plane intake:
 
 ```bash

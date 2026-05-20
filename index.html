@@ -178,6 +178,16 @@ registack-air-link --base-url http://127.0.0.1:8092/admin/installer --token "$RE
       </section>
 
       <section class="section">
+        <h2>Export JSON File</h2>
+        <p>Write the detector result directly to a JSON file when you want to hand the output into AIR Control Plane, archive a scan, or send it to another review step.</p>
+        <pre><code>registack-agent-detector --scan-default --json-file ./detected-agents.json
+registack-agent-detector --scan-default --json-file
+registack-agent-detector --scan-default --output json --output-file ./detected-agents.json
+registack-agent-detector --scan-default --output json --output-file</code></pre>
+        <p>If you omit the file path, the detector opens the native save dialog so the target location can be selected without manual path typing.</p>
+      </section>
+
+      <section class="section">
         <h2>Actual Agent Profile</h2>
         <p>For managed or otherwise profile-bearing agents, the detector JSON also includes an <code>agent_identity</code> block. It can expose the detected agent root, identity bundle paths, the parsed <code>actual-profile.json</code>, and preview content from skill and context artifacts such as <code>SKILL.md</code>, <code>README.md</code>, <code>manifest.json</code>, and <code>prompts.json</code>.</p>
       </section>

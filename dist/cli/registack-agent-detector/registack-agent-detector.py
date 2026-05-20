@@ -22,11 +22,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable
 
-VERSION = "0.1.7"
+VERSION = "0.1.9"
 OUTPUT_FORMAT = "air-compatible"
 ENV_CONFIG_PATH = "REGISTACK_AGENT_DETECTOR_CONFIG"
 ENV_STATE_PATH = "REGISTACK_AGENT_DETECTOR_STATE"
 CONFIG_POINTER_FILENAME = ".registack-agent-detector-config"
+OUTPUT_PATH_PICKER = "__PICK_OUTPUT_PATH__"
 
 METADATA_STATUS_DETECTED = "detected"
 METADATA_STATUS_INFERRED = "inferred"
@@ -2892,6 +2893,151 @@ def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def write_output_file(path_value: str, content: str) -> str:
+    target = Path(path_value).expanduser()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(content, encoding="utf-8")
+    return str(target)
+
+
+def default_output_filename(output_format: str) -> str:
+    return "detected-agents.json" if output_format == "json" else "detected-agents.txt"
+
+
+def prompt_output_file_path_macos(default_filename: str) -> str:
+    escaped_filename = default_filename.replace('"', '\\"')
+    script = (
+        'try\n'
+        'set selectedPath to POSIX path of (choose file name with prompt "Choose where to save the detector result" '
+        'default location (path to downloads folder) default name "'
+        + escaped_filename
+        + '")\n'
+        "return selectedPath\n"
+        "on error number -128\n"
+        'return ""\n'
+        "end try"
+    )
+    try:
+        completed = subprocess.run(
+            ["osascript", "-e", script],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except OSError:
+        return ""
+    if completed.returncode != 0:
+        return ""
+    return completed.stdout.strip()
+
+
+def prompt_output_file_path_windows(default_filename: str, output_format: str) -> str:
+    escaped_filename = default_filename.replace("'", "''")
+    filter_value = "JSON files (*.json)|*.json|All files (*.*)|*.*" if output_format == "json" else "Text files (*.txt)|*.txt|All files (*.*)|*.*"
+    escaped_filter = filter_value.replace("'", "''")
+    command = (
+        "Add-Type -AssemblyName System.Windows.Forms; "
+        "$dialog = New-Object System.Windows.Forms.SaveFileDialog; "
+        '$dialog.Title = "Choose where to save the detector result"; '
+        f"$dialog.FileName = '{escaped_filename}'; "
+        f"$dialog.Filter = '{escaped_filter}'; "
+        "$dialog.InitialDirectory = [Environment]::GetFolderPath('MyDocuments'); "
+        "if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { "
+        "[Console]::Out.Write($dialog.FileName) }"
+    )
+    try:
+        completed = subprocess.run(
+            ["powershell", "-NoProfile", "-STA", "-Command", command],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except OSError:
+        return ""
+    if completed.returncode != 0:
+        return ""
+    return completed.stdout.strip()
+
+
+def prompt_output_file_path_linux(default_filename: str) -> str:
+    downloads_dir = str(Path.home() / "Downloads" / default_filename)
+    zenity_bin = shutil_which("zenity")
+    if zenity_bin:
+        completed = subprocess.run(
+            [
+                zenity_bin,
+                "--file-selection",
+                "--save",
+                "--confirm-overwrite",
+                "--filename",
+                downloads_dir,
+                "--title",
+                "Choose where to save the detector result",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if completed.returncode == 0:
+            return completed.stdout.strip()
+    qarma_bin = shutil_which("qarma")
+    if qarma_bin:
+        completed = subprocess.run(
+            [
+                qarma_bin,
+                "--file-selection",
+                "--save",
+                "--confirm-overwrite",
+                "--filename",
+                downloads_dir,
+                "--title=Choose where to save the detector result",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if completed.returncode == 0:
+            return completed.stdout.strip()
+    kdialog_bin = shutil_which("kdialog")
+    if kdialog_bin:
+        completed = subprocess.run(
+            [
+                kdialog_bin,
+                "--getsavefilename",
+                downloads_dir,
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if completed.returncode == 0:
+            return completed.stdout.strip()
+    return ""
+
+
+def prompt_output_file_path(output_format: str) -> str:
+    default_filename = default_output_filename(output_format)
+    if sys.platform == "darwin":
+        return prompt_output_file_path_macos(default_filename)
+    if os.name == "nt":
+        return prompt_output_file_path_windows(default_filename, output_format)
+    return prompt_output_file_path_linux(default_filename)
+
+
+def resolve_output_path(path_value: str, output_format: str) -> str:
+    normalized = first_non_empty(path_value)
+    if not normalized:
+        return ""
+    if normalized != OUTPUT_PATH_PICKER:
+        return normalized
+    selected_path = prompt_output_file_path(output_format)
+    if selected_path:
+        return selected_path
+    raise DetectorError(
+        "No output file selected. Re-run with --json-file PATH or --output-file PATH."
+    )
+
+
 def has_ai_image_pattern(image_name: str) -> bool:
     lowered = str(image_name).lower()
     return any(pattern in lowered for pattern in DOCKER_IMAGE_PATTERNS)
@@ -2922,6 +3068,20 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--deep", action="store_true", help="Enable recursive deep scan.")
     parser.add_argument("--review", action="store_true", help="Render a human review view for the detected list.")
     parser.add_argument("--output", choices=("json", "text"), default="text", help="Output format.")
+    parser.add_argument(
+        "--output-file",
+        nargs="?",
+        const=OUTPUT_PATH_PICKER,
+        default="",
+        help="Write the rendered detector result to a file instead of stdout. Omit PATH to choose it via file picker.",
+    )
+    parser.add_argument(
+        "--json-file",
+        nargs="?",
+        const=OUTPUT_PATH_PICKER,
+        default="",
+        help="Write the detector result as JSON to the given file path. Omit PATH to choose it via file picker.",
+    )
     parser.add_argument("--quiet", action="store_true", help="Suppress warnings and non-essential stderr output.")
     parser.add_argument("--version", action="version", version=f"registack-agent-detector {VERSION}")
     return parser
@@ -2930,17 +3090,22 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    requested_json_output = args.output == "json" or bool(args.json_file)
 
     if args.scan_default and args.scan_dir:
         parser.error("--scan-default cannot be combined with --scan-dir")
     if args.review and args.output == "json":
         parser.error("--review cannot be combined with --output json")
+    if args.output_file and args.json_file:
+        parser.error("--output-file cannot be combined with --json-file")
+    if args.review and args.json_file:
+        parser.error("--review cannot be combined with --json-file")
 
     scan_dirs = list(args.scan_dir or [])
     if args.scan_default:
         scan_dirs = configured_scan_dirs()
         if not scan_dirs:
-            if args.output == "json":
+            if requested_json_output:
                 print(
                     json.dumps(
                         {
@@ -2975,7 +3140,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.scan_kubernetes:
             detector.scan_kubernetes_manifests_only(scan_dirs, deep=args.deep)
     except DetectorError as exc:
-        if args.output == "json":
+        if requested_json_output:
             print(
                 json.dumps(
                     {
@@ -3000,12 +3165,43 @@ def main(argv: list[str] | None = None) -> int:
 
     detector.apply_detection_history()
 
-    if args.output == "json":
-        print(detector.render_json())
+    effective_output = "json" if args.json_file else args.output
+    try:
+        output_path = resolve_output_path(first_non_empty(args.output_file, args.json_file), effective_output)
+    except DetectorError as exc:
+        if requested_json_output:
+            print(
+                json.dumps(
+                    {
+                        "detections": [],
+                        "scan_metadata": {
+                            "timestamp": now_iso(),
+                            "scanner_version": VERSION,
+                            "output_format": OUTPUT_FORMAT,
+                            "error": str(exc),
+                        },
+                    },
+                    indent=2,
+                )
+            )
+        else:
+            print(f"error: {exc}", file=sys.stderr)
+        return 2
+
+    if effective_output == "json":
+        rendered = detector.render_json()
     elif args.review:
-        print(detector.render_review())
+        rendered = detector.render_review()
     else:
-        print(detector.render_text())
+        rendered = detector.render_text()
+
+    if output_path:
+        saved_path = write_output_file(output_path, rendered + ("" if rendered.endswith("\n") else "\n"))
+        if not args.quiet:
+            label = "JSON" if effective_output == "json" else "output"
+            print(f"Saved detector {label} to {saved_path}", file=sys.stderr)
+    else:
+        print(rendered)
 
     if detector.detections:
         return 1
